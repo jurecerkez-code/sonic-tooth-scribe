@@ -143,18 +143,18 @@ export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => 
         
         <div className="relative">
           <svg viewBox="0 0 600 500" className="w-full" style={{ maxHeight: '500px' }}>
-            {/* Labels */}
-            <text x="500" y="140" textAnchor="middle" className="text-sm fill-muted-foreground font-semibold">
-              Upper right
+            {/* Labels - positioned outside teeth */}
+            <text x="520" y="180" textAnchor="middle" className="text-sm fill-muted-foreground font-semibold">
+              Upper Right
             </text>
-            <text x="100" y="140" textAnchor="middle" className="text-sm fill-muted-foreground font-semibold">
-              Upper left
+            <text x="80" y="180" textAnchor="middle" className="text-sm fill-muted-foreground font-semibold">
+              Upper Left
             </text>
-            <text x="500" y="360" textAnchor="middle" className="text-sm fill-muted-foreground font-semibold">
-              Lower right
+            <text x="520" y="320" textAnchor="middle" className="text-sm fill-muted-foreground font-semibold">
+              Lower Right
             </text>
-            <text x="100" y="360" textAnchor="middle" className="text-sm fill-muted-foreground font-semibold">
-              Lower left
+            <text x="80" y="320" textAnchor="middle" className="text-sm fill-muted-foreground font-semibold">
+              Lower Left
             </text>
             
             {/* Upper arch teeth */}
