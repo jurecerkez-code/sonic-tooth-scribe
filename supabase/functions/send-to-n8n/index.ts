@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -6,111 +7,92 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Parse JSON body instead of FormData
+    const webhookUrl = "https://n8n.linn.games/webhook-test/voice-process";
+
+    console.log("=== Incoming Request Debug ===");
+    console.log("Content-Type:", req.headers.get("content-type"));
+    console.log("Method:", req.method);
+
+    // Parse JSON body (NOT formData)
     const body = await req.json();
 
-    console.log("=== N8N Webhook Call Debug ===");
-    console.log("Timestamp:", body.timestamp);
-    console.log("Duration:", body.duration);
     console.log("Request Type:", body.type);
+    console.log("Has audioData:", !!body.audioData);
 
-    const webhookUrl = Deno.env.get("N8N_WEBHOOK_URL");
-    console.log("Webhook URL:", webhookUrl);
-
-    if (!webhookUrl) {
-      throw new Error("N8N_WEBHOOK_URL environment variable is not set");
+    if (!body.audioData) {
+      console.error("No audioData in JSON payload");
+      return new Response(JSON.stringify({ error: "No audio data provided" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Validate audio data
-    if (!body.audioData || body.audioData.length === 0) {
-      throw new Error("No audio data received");
-    }
+    console.log("✓ Audio data received");
+    console.log("Base64 length:", body.audioData.length);
 
-    // Convert base64 back to blob for n8n
-    const base64Data = body.audioData;
-    const binaryString = atob(base64Data);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    const audioBlob = new Blob([bytes], { type: body.mimeType });
+    // Send to n8n as JSON
+    const payload = {
+      audioData: body.audioData,
+      mimeType: body.mimeType || "audio/mp3",
+      fileName: `recording_${Date.now()}.${body.extension || "mp3"}`,
+      timestamp: body.timestamp || new Date().toISOString(),
+      duration: body.duration || 0,
+      source: "DentalChart AI",
+      type: body.type || "voice_recording",
+    };
 
-    // Create File object
-    const audioFile = new File([audioBlob], body.fileName, { type: body.mimeType });
+    console.log("Sending to n8n webhook...");
 
-    console.log("Audio File:", {
-      name: audioFile.name,
-      type: audioFile.type,
-      size: audioFile.size,
-    });
-
-    console.log("✓ Audio format validated");
-
-    // Create FormData for n8n
-    const formData = new FormData();
-    formData.append("audio", audioFile);
-    formData.append("timestamp", body.timestamp);
-    formData.append("duration", body.duration);
-    formData.append("type", body.type || "voice_recording");
-
-    console.log("Sending FormData to n8n with audio file...");
-    console.log("==============================");
-
-    // Send to n8n webhook
-    const n8nResponse = await fetch(webhookUrl, {
+    const response = await fetch(webhookUrl, {
       method: "POST",
-      body: formData,
-      // Don't set Content-Type header - let browser set it with boundary
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     });
 
-    if (!n8nResponse.ok) {
-      const responseBody = await n8nResponse.text();
+    console.log("n8n Response Status:", response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
       console.error("=== N8N Webhook Error ===");
-      console.error("Status:", n8nResponse.status);
-      console.error("Status Text:", n8nResponse.statusText);
-      console.error("Response Body:", responseBody);
+      console.error("Status:", response.status);
+      console.error("Status Text:", response.statusText);
+      console.error("Response Body:", errorText);
       console.error("========================");
 
       return new Response(
         JSON.stringify({
-          error: "n8n webhook failed",
-          status: n8nResponse.status,
-          statusText: n8nResponse.statusText,
-          details: responseBody,
+          error: `Webhook responded with ${response.status}`,
+          details: errorText,
         }),
-        {
-          status: n8nResponse.status,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    const result = await n8nResponse.json();
-    console.log("✓ Successfully sent to n8n");
+    const data = await response.json();
+    console.log("✓ Success! n8n processed the audio");
 
-    return new Response(JSON.stringify({ success: true, data: result }), {
+    return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("=== Error Sending to N8N ===");
+    console.error("=== Error in Edge Function ===");
     console.error("Error:", error);
-    console.error("===========================");
+    console.error("==============================");
 
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
       JSON.stringify({
-        error: error.message || "Unknown error occurred",
-        details: error.toString(),
+        error: errorMessage,
+        details: "Failed to process audio request",
       }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });
