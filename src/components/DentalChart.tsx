@@ -63,10 +63,10 @@ const Tooth = ({
 export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => {
   // Calculate positions for upper arch teeth (1-16)
   const getUpperToothPosition = (toothNum: number) => {
-    const centerX = 300;
-    const centerY = 180;
-    const radiusX = 220;
-    const radiusY = 110;
+    const centerX = 400;
+    const centerY = 200;
+    const radiusX = 280;
+    const radiusY = 130;
     
     // Position teeth 1-8 on right side, 9-16 on left side of upper arch
     let position;
@@ -98,10 +98,10 @@ export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => 
 
   // Calculate positions for lower arch teeth (17-32)
   const getLowerToothPosition = (toothNum: number) => {
-    const centerX = 300;
-    const centerY = 320;
-    const radiusX = 220;
-    const radiusY = 110;
+    const centerX = 400;
+    const centerY = 400;
+    const radiusX = 280;
+    const radiusY = 130;
     
     // Position teeth 17-24 on left side, 25-32 on right side of lower arch
     let position;
@@ -142,18 +142,18 @@ export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => 
         </h3>
         
         <div className="relative">
-          <svg viewBox="0 0 600 500" className="w-full" style={{ maxHeight: '500px' }}>
-            {/* Labels - positioned far outside teeth */}
-            <text x="560" y="180" textAnchor="middle" className="text-sm fill-foreground font-semibold">
+          <svg viewBox="0 0 800 600" className="w-full" style={{ maxHeight: '600px' }}>
+            {/* Labels - positioned far outside teeth with larger text */}
+            <text x="720" y="200" textAnchor="middle" className="text-base fill-foreground font-semibold" style={{ fontSize: '18px' }}>
               Upper Right
             </text>
-            <text x="40" y="180" textAnchor="middle" className="text-sm fill-foreground font-semibold">
+            <text x="80" y="200" textAnchor="middle" className="text-base fill-foreground font-semibold" style={{ fontSize: '18px' }}>
               Upper Left
             </text>
-            <text x="560" y="320" textAnchor="middle" className="text-sm fill-foreground font-semibold">
+            <text x="720" y="400" textAnchor="middle" className="text-base fill-foreground font-semibold" style={{ fontSize: '18px' }}>
               Lower Right
             </text>
-            <text x="40" y="320" textAnchor="middle" className="text-sm fill-foreground font-semibold">
+            <text x="80" y="400" textAnchor="middle" className="text-base fill-foreground font-semibold" style={{ fontSize: '18px' }}>
               Lower Left
             </text>
             
