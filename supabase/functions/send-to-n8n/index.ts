@@ -16,7 +16,7 @@ serve(async (req) => {
     
     // Parse FormData from request
     const formData = await req.formData();
-    const audioFile = formData.get('audio') as File;
+    const audioFile = formData.get('file') as File;
     const timestamp = formData.get('timestamp') as string;
     const duration = formData.get('duration') as string;
     const type = formData.get('type') as string;
@@ -41,23 +41,19 @@ serve(async (req) => {
       size: audioFile.size
     });
     
-    // Validate audio format - must be MP3
-    const fileName = audioFile.name.toLowerCase();
-    const mimeType = audioFile.type.toLowerCase();
-    
-    if (!fileName.endsWith('.mp3') && !mimeType.includes('mp3') && !mimeType.includes('mpeg')) {
+    // Validate audio file has proper format
+    const supportedFormats = ['audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/wav', 'audio/ogg'];
+    if (!supportedFormats.some(format => audioFile.type.includes(format.split('/')[1]))) {
       console.error('=== Format Validation Error ===');
-      console.error('Invalid audio format');
-      console.error('File name:', fileName);
-      console.error('MIME type:', mimeType);
-      console.error('Required: .mp3 extension or audio/mp3 MIME type');
+      console.error('Unsupported audio format:', audioFile.type);
+      console.error('Supported formats:', supportedFormats);
       console.error('==============================');
       
       return new Response(
         JSON.stringify({ 
-          error: 'Only MP3 format is supported',
-          receivedFormat: `${fileName} (${mimeType})`,
-          requiredFormat: 'audio/mp3 with .mp3 extension'
+          error: 'Unsupported audio format',
+          receivedFormat: audioFile.type,
+          supportedFormats 
         }),
         { 
           status: 400,
@@ -66,15 +62,12 @@ serve(async (req) => {
       );
     }
     
-    console.log('✓ Audio format validated as MP3');
+    console.log('✓ Audio format validated');
     console.log('==============================');
     
-    // Create new FormData for n8n with proper MP3 format
+    // Create new FormData for n8n - field name doesn't matter, n8n saves as $binary.data
     const n8nFormData = new FormData();
-    
-    // Ensure the audio file has .mp3 extension and correct MIME type
-    const mp3Blob = new Blob([await audioFile.arrayBuffer()], { type: 'audio/mp3' });
-    n8nFormData.append('audio', mp3Blob, 'recording.mp3');
+    n8nFormData.append('file', audioFile);
     n8nFormData.append('timestamp', timestamp || new Date().toISOString());
     n8nFormData.append('duration', duration || '0');
     n8nFormData.append('source', 'DentalChart AI');

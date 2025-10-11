@@ -148,12 +148,8 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
   const sendAudioToN8n = async (audioBlob: Blob) => {
     setIsProcessing(true);
     try {
-      // Create MP3-compatible blob
-      // Note: Most browsers record as webm/mp4, we'll set it as MP3 for n8n/OpenAI compatibility
-      const mp3Blob = new Blob([audioBlob], { type: 'audio/mp3' });
-      
-      // Validate audio format
-      if (!mp3Blob.size || mp3Blob.size === 0) {
+      // Validate audio data
+      if (!audioBlob.size || audioBlob.size === 0) {
         toast({
           title: "Recording Error",
           description: "Recording failed. No audio data captured. Please check your microphone permissions and try again.",
@@ -163,16 +159,26 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
         return;
       }
 
+      // Determine file extension from blob type
+      const mimeType = audioBlob.type || 'audio/webm';
+      const extension = mimeType.includes('mp4') ? 'mp4' : 
+                       mimeType.includes('mpeg') ? 'mp3' :
+                       mimeType.includes('webm') ? 'webm' : 'webm';
+      
+      // Create proper File object with name and type for secure upload
+      const audioFile = new File([audioBlob], `input.${extension}`, { type: mimeType });
+      
       console.log('Preparing audio for upload:', {
-        originalType: audioBlob.type,
-        mp3Type: mp3Blob.type,
-        size: mp3Blob.size,
+        fileName: audioFile.name,
+        type: audioFile.type,
+        size: audioFile.size,
         duration: recordingDuration
       });
 
       // Create FormData with binary audio file
+      // Field name doesn't matter - n8n webhook saves it as $binary.data
       const formData = new FormData();
-      formData.append('audio', mp3Blob, 'recording.mp3');
+      formData.append('file', audioFile);
       formData.append('timestamp', new Date().toISOString());
       formData.append('duration', recordingDuration.toString());
       formData.append('type', 'voice_recording');
