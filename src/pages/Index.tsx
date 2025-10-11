@@ -40,7 +40,6 @@ const Index = () => {
   // Enhanced session state
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [enhancedFindings, setEnhancedFindings] = useState<EnhancedFinding[]>([]);
-  const [sessionStarted, setSessionStarted] = useState(false);
 
   // Load patients from localStorage on mount
   useEffect(() => {
@@ -134,8 +133,10 @@ const Index = () => {
     // Reset for new patient
     setTeethStatus(new Map());
     setFindings([]);
+    setEnhancedFindings([]);
     setHistory([new Map()]);
     setHistoryIndex(0);
+    setSelectedPatient(null);
     setPatientInfo({
       name: "",
       sessionId: `SESSION-${Date.now()}`,
@@ -193,10 +194,10 @@ const Index = () => {
   };
 
   const handleSendToN8n = async () => {
-    if (!sessionStarted || enhancedFindings.length === 0) {
+    if (enhancedFindings.length === 0) {
       toast({
         title: "No Session Data",
-        description: "Please start a session and add findings before sending to automation",
+        description: "Please add findings before sending to automation",
         variant: "destructive",
       });
       return;
@@ -254,27 +255,6 @@ const Index = () => {
     });
   };
 
-  const handleStartSession = () => {
-    if (!selectedPatient) {
-      toast({
-        title: "Missing Information",
-        description: "Please select a patient to start session",
-        variant: "destructive",
-      });
-      return;
-    }
-    setSessionStarted(true);
-    setPatientInfo({
-      name: selectedPatient.name,
-      sessionId: `SESSION-${Date.now()}`,
-      date: new Date().toISOString(),
-    });
-    toast({
-      title: "Session Started",
-      description: `New session started for ${selectedPatient.name}`,
-    });
-  };
-
   const handleVerifyFinding = (id: string) => {
     setEnhancedFindings(enhancedFindings.map(f => 
       f.id === id ? { ...f, verified: true, flagged: false } : f
@@ -298,6 +278,15 @@ const Index = () => {
     toast({
       title: "Session Loaded",
       description: `Loaded session for ${session.patientName}`,
+    });
+  };
+
+  const handlePatientSelect = (patient: Patient) => {
+    setSelectedPatient(patient);
+    setPatientInfo({
+      name: patient.name,
+      sessionId: `SESSION-${Date.now()}`,
+      date: new Date().toISOString(),
     });
   };
 
@@ -364,76 +353,68 @@ const Index = () => {
           </TabsList>
 
           <TabsContent value="session" className="space-y-6">
-            {!sessionStarted ? (
-              <div className="space-y-6">
-                <div className="max-w-2xl mx-auto">
-                  <PatientSelector
-                    selectedPatient={selectedPatient}
-                    onSelectPatient={setSelectedPatient}
-                  />
-                </div>
-                <div className="flex justify-center">
-                  <Button size="lg" onClick={handleStartSession}>
-                    Start Session
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Patient Info */}
+            {/* Patient Info */}
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="md:col-span-2">
                 <PatientInfo
                   patientInfo={patientInfo}
                   onPatientNameChange={(name) => setPatientInfo({ ...patientInfo, name })}
                   onNewPatient={handleNewPatient}
                 />
+              </div>
+              <div>
+                <PatientSelector
+                  selectedPatient={selectedPatient}
+                  onSelectPatient={handlePatientSelect}
+                />
+              </div>
+            </div>
 
-                {/* Main Content Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Dental Chart */}
-                  <div className="lg:col-span-2">
-                    <DentalChart
-                      teethStatus={teethStatus}
-                      onToothClick={handleToothClick}
-                    />
-                  </div>
+            {/* Main Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Dental Chart */}
+              <div className="lg:col-span-2">
+                <DentalChart
+                  teethStatus={teethStatus}
+                  onToothClick={handleToothClick}
+                />
+              </div>
 
-                  {/* Enhanced Findings Panel */}
-                  <div className="lg:col-span-1">
-                    <EnhancedFindingsPanel
-                      findings={enhancedFindings}
-                      onDeleteFinding={handleDeleteEnhancedFinding}
-                      onVerifyFinding={handleVerifyFinding}
-                    />
-                  </div>
-                </div>
+              {/* Enhanced Findings Panel */}
+              <div className="lg:col-span-1">
+                <EnhancedFindingsPanel
+                  findings={enhancedFindings}
+                  onDeleteFinding={handleDeleteEnhancedFinding}
+                  onVerifyFinding={handleVerifyFinding}
+                />
+              </div>
+            </div>
 
-                {/* Voice Recording */}
-                <VoiceRecording onRecordingComplete={handleRecordingComplete} />
+            {/* Voice Recording */}
+            <VoiceRecording onRecordingComplete={handleRecordingComplete} />
 
-                {/* Send to Automation */}
-                {sessionStarted && enhancedFindings.length > 0 && (
-                  <div className="flex justify-center">
-                    <Button 
-                      onClick={handleSendToN8n}
-                      className="gap-2"
-                      size="lg"
-                    >
-                      <Send className="w-4 h-4" />
-                      Send Session to Automation
-                    </Button>
-                  </div>
-                )}
-
-                {/* Legacy Patient List */}
-                <div className="mt-8">
-                  <h3 className="text-lg font-semibold mb-4">Previous Patients (Legacy)</h3>
-                  <PatientList 
-                    patients={allPatients}
-                    onLoadPatient={handleLoadPatient}
-                  />
-                </div>
+            {/* Send to Automation */}
+            {enhancedFindings.length > 0 && (
+              <div className="flex justify-center">
+                <Button 
+                  onClick={handleSendToN8n}
+                  className="gap-2"
+                  size="lg"
+                >
+                  <Send className="w-4 h-4" />
+                  Send Session to Automation
+                </Button>
               </div>
             )}
+
+            {/* Legacy Patient List */}
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold mb-4">Previous Patients (Legacy)</h3>
+              <PatientList 
+                patients={allPatients}
+                onLoadPatient={handleLoadPatient}
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="history">
