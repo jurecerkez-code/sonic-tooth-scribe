@@ -250,13 +250,10 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
             ? "webm"
             : "webm";
 
-      // Create proper File object with name and type for secure upload
-      const audioFile = new File([audioBlob], `input.${extension}`, { type: mimeType });
-
       console.log("Preparing audio for upload:", {
-        fileName: audioFile.name,
-        type: audioFile.type,
-        size: audioFile.size,
+        fileName: `input.${extension}`,
+        type: mimeType,
+        size: audioBlob.size,
         duration: recordingDuration,
         attempt: retryAttempt + 1,
       });
@@ -268,11 +265,11 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
         });
       }
 
-      // FIX: Convert blob to base64 and send as JSON
+      // Convert blob to base64 and send as JSON
       const arrayBuffer = await audioBlob.arrayBuffer();
       const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
 
-      // Create JSON payload instead of FormData
+      // Create JSON payload
       const payload = {
         audioData: base64Audio,
         mimeType: mimeType,
@@ -290,7 +287,7 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
       });
 
       const { data, error } = await supabase.functions.invoke("send-to-n8n", {
-        body: payload, // JSON instead of FormData
+        body: payload,
       });
 
       const responseTime = Date.now() - startTime;
@@ -556,6 +553,7 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
             <AlertDescription>Working offline - recordings will sync when connection is restored</AlertDescription>
           </Alert>
         )}
+
         {/* Recording Button */}
         <div className="relative">
           {isRecording ? (
