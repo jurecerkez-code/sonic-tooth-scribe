@@ -26,79 +26,103 @@ serve(async (req) => {
     const webhookUrl = "https://n8n.linn.games/webhook-test/voice-process";
 
     const ct = req.headers.get("content-type") || "";
+    const isJson = ct.toLowerCase().includes("application/json");
+    const isMultipart = ct.toLowerCase().includes("multipart/form-data");
+
     console.log("=== Incoming Request Debug ===");
     console.log("Content-Type:", ct);
     console.log("Method:", req.method);
 
-    // 1) Read raw body first to avoid Deno guessing the parser
-    let raw = "";
-    try {
-      raw = await req.text();
-    } catch {
-      raw = "";
-    }
-
-    // 2) Decide how to parse based on content-type and body shape
     let body: any = null;
+    let parseMode = "raw";
 
-    if (ct.includes("application/json")) {
-      // Safe JSON parse from raw text
+    if (isJson) {
+      parseMode = "json";
       try {
-        body = JSON.parse(raw || "{}");
+        body = await req.json();
       } catch (e) {
         console.error("JSON parse failed:", e);
-        return new Response(JSON.stringify({ error: "Invalid JSON" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        // Fallback: try text and parse JSON
+        const raw = await req.text();
+        try {
+          body = JSON.parse(raw || "{}");
+        } catch (e2) {
+          return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
       }
-    } else if (ct.includes("multipart/form-data")) {
-      // Only call formData() when we know it's multipart
-      const form = await req.formData();
-      const file = form.get("file") as File | null;
-      const audioDataField = form.get("audioData") as string | null;
+    } else if (isMultipart) {
+      parseMode = "multipart";
+      try {
+        const form = await req.formData();
+        const file = form.get("file") as File | null;
+        const audioDataField = form.get("audioData") as string | null;
 
-      if (file) {
-        const buf = await file.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-        const mimeType = file.type || "audio/webm";
-        body = {
-          audioData: base64,
-          mimeType,
-          extension: mimeToExt(mimeType),
-          fileName: file.name || `recording_${Date.now()}.${mimeToExt(mimeType)}`,
-        };
-      } else if (audioDataField) {
-        // If someone posted base64 in a form field instead of a file
-        body = {
-          audioData: audioDataField,
-          mimeType: "audio/webm",
-          extension: "webm",
-          fileName: `recording_${Date.now()}.webm`,
-        };
-      } else {
-        return new Response(JSON.stringify({ error: "No audio found in form data" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        if (file) {
+          const buf = new Uint8Array(await file.arrayBuffer());
+          const base64 = btoa(String.fromCharCode(...buf));
+          const mimeType = file.type || "audio/webm";
+          body = {
+            audioData: base64,
+            mimeType,
+            extension: mimeToExt(mimeType),
+            fileName: file.name || `recording_${Date.now()}.${mimeToExt(mimeType)}`,
+          };
+        } else if (audioDataField) {
+          body = {
+            audioData: audioDataField,
+            mimeType: "audio/webm",
+            extension: "webm",
+            fileName: `recording_${Date.now()}.webm`,
+          };
+        } else {
+          return new Response(JSON.stringify({ error: "No audio found in form data" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } catch (e) {
+        // If formData decode fails (bad boundary or consumed body), fallback to raw text
+        console.error("formData() failed, falling back to raw:", e);
+        const raw = await req.text();
+        const looksJson = raw.trim().startsWith("{") && raw.trim().endsWith("}");
+        if (looksJson) {
+          try {
+            body = JSON.parse(raw);
+            parseMode = "json-fallback";
+          } catch (e2) {
+            return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+              status: 400,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        } else {
+          parseMode = "raw-base64";
+          body = {
+            audioData: raw,
+            mimeType: "audio/webm",
+            extension: "webm",
+            fileName: `recording_${Date.now()}.webm`,
+          };
+        }
       }
     } else {
-      // 3) Fallback: if it's neither JSON nor multipart, try:
-      //    a) parse as JSON if raw looks like JSON
-      //    b) otherwise treat raw as base64 audio payload
+      parseMode = "raw";
+      const raw = await req.text();
       const looksJson = raw.trim().startsWith("{") && raw.trim().endsWith("}");
       if (looksJson) {
         try {
           body = JSON.parse(raw);
+          parseMode = "json-fallback";
         } catch (e) {
-          console.error("Fallback JSON parse failed:", e);
           return new Response(JSON.stringify({ error: "Invalid JSON" }), {
             status: 400,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
       } else {
-        // Assume the raw body is base64 audio
         body = {
           audioData: raw,
           mimeType: "audio/webm",
@@ -108,9 +132,11 @@ serve(async (req) => {
       }
     }
 
+    console.log("Parse mode:", parseMode);
+
     // Normalize data URLs if present
     if (typeof body.audioData === "string" && body.audioData.includes(",")) {
-      body.audioData = body.audioData.split(",").pop(); // strip data:audio/...;base64,
+      body.audioData = body.audioData.split(",").pop();
     }
 
     console.log("Request Type:", body.type);
@@ -130,13 +156,12 @@ serve(async (req) => {
     const mimeType = body.mimeType || "audio/webm";
     const extension = body.extension || mimeToExt(mimeType);
 
-    // Send to n8n as JSON
     const payload = {
       audioData: body.audioData,
       mimeType,
       fileName: body.fileName || `recording_${Date.now()}.${extension}`,
       timestamp: body.timestamp || new Date().toISOString(),
-      duration: body.duration || 0,
+      duration: Number(body.duration) || 0,
       source: "DentalChart AI",
       type: body.type || "voice_recording",
       meta: body.meta ?? null,
