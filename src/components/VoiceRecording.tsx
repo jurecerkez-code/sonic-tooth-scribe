@@ -120,7 +120,7 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
 
           {/* Recording Indicator */}
           {isRecording && (
-            <div className="absolute inset-0 -m-4">
+            <div className="absolute inset-0 -m-4 pointer-events-none">
               <div className="w-full h-full rounded-full bg-recording-glow animate-pulse-recording" />
             </div>
           )}

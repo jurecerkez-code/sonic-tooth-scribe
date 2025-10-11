@@ -7,7 +7,7 @@ import { ToothSelector } from "@/components/ToothSelector";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ToothCondition, PatientInfo as PatientInfoType, Finding } from "@/types/dental";
-import { Undo2, Redo2, Moon, Sun, Play } from "lucide-react";
+import { Undo2, Redo2, Moon, Sun, Play, RotateCcw } from "lucide-react";
 
 const Index = () => {
   const { toast } = useToast();
@@ -170,6 +170,14 @@ const Index = () => {
                 onClick={() => setIsDarkMode(!isDarkMode)}
               >
                 {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleNewPatient}
+                className="gap-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Restart
               </Button>
               <Button
                 variant="outline"
