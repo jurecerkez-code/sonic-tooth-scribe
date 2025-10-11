@@ -18,6 +18,7 @@ const mimeToExt = (mime: string) => {
 };
 
 serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -25,51 +26,66 @@ serve(async (req) => {
   try {
     const webhookUrl = "https://n8n.linn.games/webhook-test/voice-process";
 
+    // Debug logging
     const ct = (req.headers.get("content-type") || "").toLowerCase();
     console.log("=== Incoming Request Debug ===");
+    console.log("Edge Version:", "v3-json-only");
     console.log("Content-Type:", ct);
     console.log("Method:", req.method);
-    console.log("Edge Version:", "v3-json-only");
 
-    // Strictly require JSON to avoid Deno's form-data parser
+    // Enforce JSON-only - reject non-JSON requests
     if (!ct.includes("application/json")) {
-      return new Response(JSON.stringify({ error: "Expected application/json" }), {
-        status: 415,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      console.error("Rejected: Content-Type must be application/json");
+      return new Response(
+        JSON.stringify({ error: "Expected application/json" }), 
+        {
+          status: 415,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
-    // Read raw text, then parse JSON
+    // Read body exactly once as text, then parse JSON
     const raw = await req.text();
     let body: any;
+    
     try {
       body = JSON.parse(raw || "{}");
     } catch (e) {
       console.error("JSON parse failed:", e);
-      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Normalize data URLs if present
-    if (typeof body.audioData === "string" && body.audioData.includes(",")) {
-      body.audioData = body.audioData.split(",").pop();
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON body" }), 
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
     console.log("Request Type:", body.type);
     console.log("Has audioData:", !!body.audioData);
 
+    // Validate audioData
     if (!body.audioData || typeof body.audioData !== "string") {
-      return new Response(JSON.stringify({ error: "No audio data provided" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      console.error("Missing or invalid audioData");
+      return new Response(
+        JSON.stringify({ error: "No audio data provided" }), 
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Normalize data URLs - strip prefix if present (e.g., "data:audio/webm;base64,")
+    if (body.audioData.includes(",")) {
+      body.audioData = body.audioData.split(",").pop();
     }
 
     console.log("✓ Audio data received");
     console.log("Base64 length:", body.audioData.length);
 
+    // Build payload for n8n
     const mimeType = body.mimeType || "audio/webm";
     const extension = body.extension || mimeToExt(mimeType);
 
@@ -84,6 +100,7 @@ serve(async (req) => {
       meta: body.meta ?? null,
     };
 
+    // Forward to n8n webhook
     console.log("Sending to n8n webhook...");
     const response = await fetch(webhookUrl, {
       method: "POST",
@@ -93,6 +110,7 @@ serve(async (req) => {
 
     console.log("n8n Response Status:", response.status);
 
+    // Handle n8n errors
     if (!response.ok) {
       const errorText = await response.text();
       console.error("=== N8N Webhook Error ===");
@@ -101,27 +119,41 @@ serve(async (req) => {
       console.error("Response Body:", errorText);
       console.error("========================");
 
-      return new Response(JSON.stringify({ error: `Webhook responded with ${response.status}`, details: errorText }), {
-        status: response.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ 
+          error: `Webhook responded with ${response.status}`, 
+          details: errorText 
+        }), 
+        {
+          status: response.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
+    // Success response
     const data = await response.json().catch(() => ({}));
     console.log("✓ Success! n8n processed the audio");
 
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (error) {
     console.error("=== Error in Edge Function ===");
     console.error("Error:", error);
     console.error("==============================");
 
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return new Response(JSON.stringify({ error: errorMessage, details: "Failed to process audio request" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ 
+        error: errorMessage, 
+        details: "Failed to process audio request" 
+      }), 
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   }
 });
