@@ -47,12 +47,20 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
   };
 
   const stopRecording = async () => {
+    console.log("stopRecording called");
+    console.log("Timer before clear:", (window as any).recordingTimer);
     try {
+      console.log("Setting isRecording to false");
       setIsRecording(false);
 
       // Clear timer
       if ((window as any).recordingTimer) {
+        console.log("Clearing timer...");
         clearInterval((window as any).recordingTimer);
+        (window as any).recordingTimer = null;
+        console.log("Timer cleared");
+      } else {
+        console.log("No timer found to clear");
       }
 
       toast({
