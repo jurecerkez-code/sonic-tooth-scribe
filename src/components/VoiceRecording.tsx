@@ -141,39 +141,46 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
       const reader = new FileReader();
       reader.readAsDataURL(audioBlob);
       
-      await new Promise((resolve) => {
+      await new Promise((resolve, reject) => {
         reader.onloadend = async () => {
-          const base64Audio = (reader.result as string).split(',')[1];
-          
-          const sessionData = {
-            type: 'voice_recording',
-            timestamp: new Date().toISOString(),
-            audioData: base64Audio,
-            duration: recordingDuration,
-            format: 'audio/webm',
-          };
+          try {
+            const base64Audio = (reader.result as string).split(',')[1];
+            
+            const sessionData = {
+              type: 'voice_recording',
+              timestamp: new Date().toISOString(),
+              audioData: base64Audio,
+              duration: recordingDuration,
+              format: 'audio/webm',
+            };
 
-          const { data, error } = await supabase.functions.invoke('send-to-n8n', {
-            body: sessionData,
-          });
+            const { data, error } = await supabase.functions.invoke('send-to-n8n', {
+              body: sessionData,
+            });
 
-          if (error) throw error;
+            if (error) {
+              reject(error);
+              return;
+            }
 
-          toast({
-            title: "Recording Sent",
-            description: "Voice recording sent to automation workflow",
-          });
+            toast({
+              title: "Recording Sent",
+              description: "Voice recording sent to automation workflow",
+            });
 
-          setTranscript("Voice recording sent to n8n for processing");
-          onRecordingComplete("Voice recording processed");
-          resolve(data);
+            setTranscript("Voice recording sent to n8n for processing");
+            onRecordingComplete("Voice recording processed");
+            resolve(data);
+          } catch (err) {
+            reject(err);
+          }
         };
       });
     } catch (error) {
       console.error("Error sending audio:", error);
       toast({
         title: "Error",
-        description: "Failed to send recording to automation",
+        description: "Failed to send recording. Please check your automation webhook configuration.",
         variant: "destructive",
       });
     } finally {
