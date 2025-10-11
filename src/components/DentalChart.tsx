@@ -71,21 +71,21 @@ export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => 
     // Position teeth 1-8 on right side, 9-16 on left side of upper arch
     let position;
     if (toothNum >= 1 && toothNum <= 8) {
-      // Upper right: 1-8 (from center going right and down)
+      // Upper right: 1-8 (8 teeth)
       position = toothNum - 1;
     } else {
-      // Upper left: 9-16 (from center going left and down)
+      // Upper left: 9-16 (8 teeth)
       position = toothNum - 9;
     }
     
-    // Create horseshoe shape for upper arch (180° arc) with more spacing
+    // Create horseshoe shape for upper arch (180° arc)
     let angle;
     if (toothNum >= 1 && toothNum <= 8) {
-      // Right side: -90° to -5° (more spread)
-      angle = -90 + (position * 85 / 7);
+      // Right side: -85° to -5° (spread across 8 teeth)
+      angle = -85 + (position * 80 / 7);
     } else {
-      // Left side: -175° to -90° (more spread)
-      angle = -175 + (position * 85 / 7);
+      // Left side: -175° to -95° (spread across 8 teeth)
+      angle = -175 + (position * 80 / 7);
     }
     
     const angleRad = (angle * Math.PI) / 180;
