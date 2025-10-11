@@ -38,14 +38,16 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
       animationFrameRef.current = requestAnimationFrame(draw);
       analyser.getByteTimeDomainData(dataArray);
 
-      canvasCtx.fillStyle = 'rgb(var(--card))';
+      // Clear canvas with background color
+      canvasCtx.fillStyle = '#000000';
       canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
 
-      canvasCtx.lineWidth = 2;
-      canvasCtx.strokeStyle = 'hsl(var(--primary))';
+      // Draw waveform
+      canvasCtx.lineWidth = 3;
+      canvasCtx.strokeStyle = '#22c55e';
       canvasCtx.beginPath();
 
-      const sliceWidth = canvas.width / bufferLength;
+      const sliceWidth = (canvas.width * 1.0) / bufferLength;
       let x = 0;
 
       for (let i = 0; i < bufferLength; i++) {
