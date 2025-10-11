@@ -143,18 +143,30 @@ export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => 
         
         <div className="relative">
           <svg viewBox="0 0 800 600" className="w-full" style={{ maxHeight: '600px' }}>
-            {/* Labels - positioned far outside teeth with larger text */}
+            {/* Quadrant Labels */}
             <text x="720" y="200" textAnchor="middle" className="text-base fill-foreground font-semibold" style={{ fontSize: '18px' }}>
               Upper Right
+            </text>
+            <text x="740" y="220" textAnchor="middle" className="text-sm fill-muted-foreground" style={{ fontSize: '14px' }}>
+              Quadrant
             </text>
             <text x="80" y="200" textAnchor="middle" className="text-base fill-foreground font-semibold" style={{ fontSize: '18px' }}>
               Upper Left
             </text>
+            <text x="80" y="220" textAnchor="middle" className="text-sm fill-muted-foreground" style={{ fontSize: '14px' }}>
+              Quadrant
+            </text>
             <text x="720" y="400" textAnchor="middle" className="text-base fill-foreground font-semibold" style={{ fontSize: '18px' }}>
               Lower Right
             </text>
+            <text x="740" y="420" textAnchor="middle" className="text-sm fill-muted-foreground" style={{ fontSize: '14px' }}>
+              Quadrant
+            </text>
             <text x="80" y="400" textAnchor="middle" className="text-base fill-foreground font-semibold" style={{ fontSize: '18px' }}>
               Lower Left
+            </text>
+            <text x="80" y="420" textAnchor="middle" className="text-sm fill-muted-foreground" style={{ fontSize: '14px' }}>
+              Quadrant
             </text>
             
             {/* Upper arch teeth */}
