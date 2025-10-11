@@ -4,10 +4,17 @@ import { PatientInfo } from "@/components/PatientInfo";
 import { VoiceRecording } from "@/components/VoiceRecording";
 import { FindingsPanel } from "@/components/FindingsPanel";
 import { ToothSelector } from "@/components/ToothSelector";
+import { PatientList } from "@/components/PatientList";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ToothCondition, PatientInfo as PatientInfoType, Finding } from "@/types/dental";
 import { Undo2, Redo2, Moon, Sun, Play, RotateCcw } from "lucide-react";
+
+interface StoredPatient {
+  patientInfo: PatientInfoType;
+  teethStatus: [number, ToothCondition][];
+  findings: Finding[];
+}
 
 const Index = () => {
   const { toast } = useToast();
@@ -22,6 +29,15 @@ const Index = () => {
     sessionId: `SESSION-${Date.now()}`,
     date: new Date().toISOString(),
   });
+  const [allPatients, setAllPatients] = useState<StoredPatient[]>([]);
+
+  // Load patients from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem("dentalPatients");
+    if (stored) {
+      setAllPatients(JSON.parse(stored));
+    }
+  }, []);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -91,6 +107,20 @@ const Index = () => {
   };
 
   const handleNewPatient = () => {
+    // Save current patient if they have data
+    if (findings.length > 0 || teethStatus.size > 0) {
+      const currentPatient: StoredPatient = {
+        patientInfo,
+        teethStatus: Array.from(teethStatus.entries()),
+        findings,
+      };
+      
+      const updatedPatients = [...allPatients, currentPatient];
+      setAllPatients(updatedPatients);
+      localStorage.setItem("dentalPatients", JSON.stringify(updatedPatients));
+    }
+
+    // Reset for new patient
     setTeethStatus(new Map());
     setFindings([]);
     setHistory([new Map()]);
@@ -102,7 +132,20 @@ const Index = () => {
     });
     toast({
       title: "New Patient",
-      description: "Chart cleared for new patient",
+      description: "Previous patient saved. Ready for new patient.",
+    });
+  };
+
+  const handleLoadPatient = (patient: StoredPatient) => {
+    setPatientInfo(patient.patientInfo);
+    setTeethStatus(new Map(patient.teethStatus));
+    setFindings(patient.findings);
+    setHistory([new Map(patient.teethStatus)]);
+    setHistoryIndex(0);
+    
+    toast({
+      title: "Patient Loaded",
+      description: `Loaded ${patient.patientInfo.name || "patient"} record`,
     });
   };
 
@@ -240,6 +283,12 @@ const Index = () => {
 
           {/* Voice Recording */}
           <VoiceRecording onRecordingComplete={handleRecordingComplete} />
+
+          {/* Patient List */}
+          <PatientList 
+            patients={allPatients}
+            onLoadPatient={handleLoadPatient}
+          />
         </div>
       </main>
 
