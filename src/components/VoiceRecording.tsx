@@ -1,8 +1,25 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, Square, Loader2 } from "lucide-react";
+import { Mic, Square, Loader2, RefreshCw, WifiOff, Wifi, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+interface FailedRecording {
+  id: string;
+  audioData: string; // base64
+  timestamp: string;
+  duration: number;
+  attempts: number;
+  lastAttempt: string;
+}
+
+type N8nStatus = 'healthy' | 'slow' | 'down';
+
+const STORAGE_KEY = 'failed_recordings';
+const MAX_RETRY_ATTEMPTS = 3;
+const AUTO_RETRY_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 interface VoiceRecordingProps {
   onRecordingComplete: (transcript: string) => void;
@@ -14,6 +31,10 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
   const [transcript, setTranscript] = useState("");
   const [aiResponse, setAiResponse] = useState("");
   const [recordingDuration, setRecordingDuration] = useState(0);
+  const [n8nStatus, setN8nStatus] = useState<N8nStatus>('healthy');
+  const [failedRecordings, setFailedRecordings] = useState<FailedRecording[]>([]);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [offlineMode, setOfflineMode] = useState(false);
   const { toast } = useToast();
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -22,6 +43,63 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
   const animationFrameRef = useRef<number | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const autoRetryIntervalRef = useRef<number | null>(null);
+
+  // Load failed recordings from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      try {
+        setFailedRecordings(JSON.parse(stored));
+      } catch (error) {
+        console.error('Error loading failed recordings:', error);
+      }
+    }
+  }, []);
+
+  // Save failed recordings to localStorage
+  const saveFailedRecordings = (recordings: FailedRecording[]) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(recordings));
+    setFailedRecordings(recordings);
+  };
+
+  // Convert blob to base64
+  const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  // Convert base64 to blob
+  const base64ToBlob = (base64: string): Blob => {
+    const arr = base64.split(',');
+    const mime = arr[0].match(/:(.*?);/)?.[1] || 'audio/webm';
+    const bstr = atob(arr[1]);
+    const n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    for (let i = 0; i < n; i++) {
+      u8arr[i] = bstr.charCodeAt(i);
+    }
+    return new Blob([u8arr], { type: mime });
+  };
+
+  // Auto-retry failed recordings
+  useEffect(() => {
+    if (failedRecordings.length > 0 && !offlineMode) {
+      autoRetryIntervalRef.current = window.setInterval(() => {
+        retryFailedRecordings();
+      }, AUTO_RETRY_INTERVAL);
+
+      return () => {
+        if (autoRetryIntervalRef.current) {
+          clearInterval(autoRetryIntervalRef.current);
+        }
+      };
+    }
+  }, [failedRecordings.length, offlineMode]);
 
   const drawWaveform = () => {
     if (!canvasRef.current || !analyserRef.current) return;
@@ -109,7 +187,9 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
       mediaRecorderRef.current.onstop = async () => {
         // Create blob with the recorded mime type
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        setIsProcessing(true);
         await sendAudioToN8n(audioBlob);
+        setIsProcessing(false);
         
         // Clean up
         stream.getTracks().forEach(track => track.stop());
@@ -145,8 +225,9 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
     }
   };
 
-  const sendAudioToN8n = async (audioBlob: Blob) => {
-    setIsProcessing(true);
+  const sendAudioToN8n = async (audioBlob: Blob, retryAttempt = 0): Promise<boolean> => {
+    const startTime = Date.now();
+    
     try {
       // Validate audio data
       if (!audioBlob.size || audioBlob.size === 0) {
@@ -155,8 +236,7 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
           description: "Recording failed. No audio data captured. Please check your microphone permissions and try again.",
           variant: "destructive",
         });
-        setIsProcessing(false);
-        return;
+        return false;
       }
 
       // Determine file extension from blob type
@@ -172,91 +252,199 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
         fileName: audioFile.name,
         type: audioFile.type,
         size: audioFile.size,
-        duration: recordingDuration
+        duration: recordingDuration,
+        attempt: retryAttempt + 1
       });
 
       // Create FormData with binary audio file
-      // Field name doesn't matter - n8n webhook saves it as $binary.data
       const formData = new FormData();
       formData.append('file', audioFile);
       formData.append('timestamp', new Date().toISOString());
       formData.append('duration', recordingDuration.toString());
       formData.append('type', 'voice_recording');
 
-      console.log('Sending audio to n8n via FormData');
+      if (retryAttempt > 0) {
+        toast({
+          title: "Retrying Upload",
+          description: `Attempt ${retryAttempt + 1} of ${MAX_RETRY_ATTEMPTS}...`,
+        });
+      }
 
       const { data, error } = await supabase.functions.invoke('send-to-n8n', {
         body: formData,
       });
 
+      const responseTime = Date.now() - startTime;
+
+      // Update n8n status based on response time
+      if (responseTime > 5000) {
+        setN8nStatus('slow');
+      } else {
+        setN8nStatus('healthy');
+      }
+
       if (error) {
-        console.error("Supabase function error:", error);
-        
-        // Parse error message for specific issues
+        console.error('n8n Error:', {
+          status: 'error',
+          error: error,
+          timestamp: new Date().toISOString(),
+          audioSize: audioBlob.size,
+          audioType: audioBlob.type,
+          responseTime,
+          attempt: retryAttempt + 1
+        });
+
+        // Check for 500 error
         const errorMsg = error.message?.toLowerCase() || '';
-        
-        if (errorMsg.includes('format') || errorMsg.includes('unsupported')) {
+        if (errorMsg.includes('500') || errorMsg.includes('internal server')) {
+          setN8nStatus('down');
+          setOfflineMode(true);
+
+          // Save to localStorage
+          const audioData = await blobToBase64(audioBlob);
+          const failedRecording: FailedRecording = {
+            id: crypto.randomUUID(),
+            audioData,
+            timestamp: new Date().toISOString(),
+            duration: recordingDuration,
+            attempts: retryAttempt + 1,
+            lastAttempt: new Date().toISOString()
+          };
+
+          const updated = [...failedRecordings, failedRecording];
+          saveFailedRecordings(updated);
+
           toast({
-            title: "Format Error",
-            description: "Voice upload failed: Unsupported file format. Please record or upload your audio as an MP3 file for best results.",
+            title: "Working Offline",
+            description: "Voice processing temporarily unavailable. Your recording has been saved locally and will be processed when the service is restored.",
             variant: "destructive",
           });
-        } else if (errorMsg.includes('400')) {
-          toast({
-            title: "Validation Error",
-            description: "Voice processing failed. Only MP3 format is accepted. Please re-record.",
-            variant: "destructive",
-          });
-        } else {
-          throw error;
+
+          return false;
         }
-        return;
+
+        // For other errors, retry with exponential backoff
+        if (retryAttempt < MAX_RETRY_ATTEMPTS - 1) {
+          const delays = [0, 5000, 30000]; // immediate, 5s, 30s
+          const delay = delays[retryAttempt];
+          
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return sendAudioToN8n(audioBlob, retryAttempt + 1);
+        }
+
+        // Max retries exceeded
+        const audioData = await blobToBase64(audioBlob);
+        const failedRecording: FailedRecording = {
+          id: crypto.randomUUID(),
+          audioData,
+          timestamp: new Date().toISOString(),
+          duration: recordingDuration,
+          attempts: MAX_RETRY_ATTEMPTS,
+          lastAttempt: new Date().toISOString()
+        };
+
+        const updated = [...failedRecordings, failedRecording];
+        saveFailedRecordings(updated);
+
+        toast({
+          title: "Upload Failed",
+          description: "Recording saved locally. Use 'Retry Failed Uploads' to try again.",
+          variant: "destructive",
+        });
+
+        return false;
       }
 
       toast({
         title: "Recording Sent",
-        description: "Voice recording sent successfully to automation workflow",
+        description: retryAttempt > 0 ? "Recording uploaded successfully!" : "Voice recording sent successfully to automation workflow",
       });
 
       setTranscript("Voice recording sent for processing");
       onRecordingComplete("Voice recording processed");
+      setOfflineMode(false);
       
+      return true;
     } catch (error) {
-      console.error("Error sending audio:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-      
-      // Enhanced error messages
-      let errorDescription = "Failed to send recording. Please try again.";
-      
-      if (errorMessage.includes("404")) {
-        errorDescription = "Automation workflow not active. Please activate the workflow in n8n and try again.";
-      } else if (errorMessage.includes("Webhook")) {
-        errorDescription = "Webhook configuration error. Please check your automation settings.";
-      } else if (errorMessage.toLowerCase().includes('format') || 
-                 errorMessage.toLowerCase().includes('unsupported')) {
-        errorDescription = "Voice upload failed: Unsupported file format. Please record your audio as MP3 for best results.";
-      } else if (errorMessage.includes("500")) {
-        errorDescription = "Server error processing audio. Ensure n8n is configured to accept 'audio' binary data and OpenAI can process the format.";
-      } else if (errorMessage.includes("permission")) {
-        errorDescription = "Recording failed. Please check your microphone permissions and try again.";
-      }
-      
-      toast({
-        title: "Error Sending Recording",
-        description: errorDescription,
-        variant: "destructive",
-        action: (
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={startRecording}
-          >
-            Retry
-          </Button>
-        ),
+      console.error('n8n Error:', {
+        status: 'exception',
+        error: error,
+        timestamp: new Date().toISOString(),
+        audioSize: audioBlob.size,
+        audioType: audioBlob.type,
+        attempt: retryAttempt + 1
       });
-    } finally {
-      setIsProcessing(false);
+
+      // Retry logic for network errors
+      if (retryAttempt < MAX_RETRY_ATTEMPTS - 1) {
+        const delays = [0, 5000, 30000];
+        const delay = delays[retryAttempt];
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return sendAudioToN8n(audioBlob, retryAttempt + 1);
+      }
+
+      // Save to localStorage after max retries
+      const audioData = await blobToBase64(audioBlob);
+      const failedRecording: FailedRecording = {
+        id: crypto.randomUUID(),
+        audioData,
+        timestamp: new Date().toISOString(),
+        duration: recordingDuration,
+        attempts: MAX_RETRY_ATTEMPTS,
+        lastAttempt: new Date().toISOString()
+      };
+
+      const updated = [...failedRecordings, failedRecording];
+      saveFailedRecordings(updated);
+
+      setN8nStatus('down');
+      setOfflineMode(true);
+
+      toast({
+        title: "Connection Error",
+        description: "Recording saved locally and will sync when connection is restored.",
+        variant: "destructive",
+      });
+
+      return false;
+    }
+  };
+
+  const retryFailedRecordings = async () => {
+    if (failedRecordings.length === 0 || isRetrying) return;
+
+    setIsRetrying(true);
+    const remaining: FailedRecording[] = [];
+
+    for (const recording of failedRecordings) {
+      try {
+        const blob = base64ToBlob(recording.audioData);
+        const success = await sendAudioToN8n(blob, recording.attempts);
+        
+        if (!success) {
+          // Keep in queue if failed
+          remaining.push({
+            ...recording,
+            attempts: recording.attempts + 1,
+            lastAttempt: new Date().toISOString()
+          });
+        }
+      } catch (error) {
+        console.error('Error retrying recording:', error);
+        remaining.push(recording);
+      }
+    }
+
+    saveFailedRecordings(remaining);
+    setIsRetrying(false);
+
+    if (remaining.length === 0) {
+      toast({
+        title: "All Recordings Uploaded",
+        description: "Successfully synced all offline recordings!",
+      });
+      setOfflineMode(false);
     }
   };
 
@@ -310,6 +498,43 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
   return (
     <div className="bg-card border border-border rounded-lg p-8 shadow-sm">
       <div className="flex flex-col items-center space-y-6">
+        {/* Status Indicator */}
+        <div className="w-full flex items-center justify-between">
+          <Badge 
+            variant={n8nStatus === 'healthy' ? 'default' : n8nStatus === 'slow' ? 'secondary' : 'destructive'}
+            className="flex items-center gap-2"
+          >
+            {n8nStatus === 'healthy' && <Wifi className="w-3 h-3" />}
+            {n8nStatus === 'slow' && <AlertCircle className="w-3 h-3" />}
+            {n8nStatus === 'down' && <WifiOff className="w-3 h-3" />}
+            {n8nStatus === 'healthy' && 'Service Online'}
+            {n8nStatus === 'slow' && 'Service Slow'}
+            {n8nStatus === 'down' && 'Service Offline'}
+          </Badge>
+
+          {failedRecordings.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={retryFailedRecordings}
+              disabled={isRetrying}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${isRetrying ? 'animate-spin' : ''}`} />
+              Retry Failed ({failedRecordings.length})
+            </Button>
+          )}
+        </div>
+
+        {/* Offline Mode Banner */}
+        {offlineMode && (
+          <Alert variant="destructive" className="w-full">
+            <WifiOff className="h-4 w-4" />
+            <AlertDescription>
+              Working offline - recordings will sync when connection is restored
+            </AlertDescription>
+          </Alert>
+        )}
         {/* Recording Button */}
         <div className="relative">
           {isRecording ? (
