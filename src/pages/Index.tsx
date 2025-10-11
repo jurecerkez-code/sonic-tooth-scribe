@@ -192,6 +192,61 @@ const Index = () => {
     ];
     setFindings(demoFindings);
 
+    // Also populate enhanced findings for the EnhancedFindingsPanel
+    const demoEnhancedFindings: EnhancedFinding[] = [
+      { 
+        id: "demo-1", 
+        toothNumber: 1, 
+        condition: "removed", 
+        confidence: 100, 
+        verified: true, 
+        flagged: false, 
+        notes: "Tooth extraction - demo data",
+        timestamp: new Date().toISOString() 
+      },
+      { 
+        id: "demo-2", 
+        toothNumber: 8, 
+        condition: "cracked", 
+        confidence: 95, 
+        verified: true, 
+        flagged: false, 
+        notes: "Visible crack on surface - demo data",
+        timestamp: new Date().toISOString() 
+      },
+      { 
+        id: "demo-3", 
+        toothNumber: 14, 
+        condition: "cavity", 
+        confidence: 90, 
+        verified: true, 
+        flagged: false, 
+        notes: "Cavity requiring filling - demo data",
+        timestamp: new Date().toISOString() 
+      },
+      { 
+        id: "demo-4", 
+        toothNumber: 19, 
+        condition: "crown", 
+        confidence: 100, 
+        verified: true, 
+        flagged: false, 
+        notes: "Crown placement - demo data",
+        timestamp: new Date().toISOString() 
+      },
+      { 
+        id: "demo-5", 
+        toothNumber: 32, 
+        condition: "removed", 
+        confidence: 100, 
+        verified: true, 
+        flagged: false, 
+        notes: "Wisdom tooth extraction - demo data",
+        timestamp: new Date().toISOString() 
+      },
+    ];
+    setEnhancedFindings(demoEnhancedFindings);
+
     toast({
       title: "Demo Mode",
       description: "Sample data loaded",
