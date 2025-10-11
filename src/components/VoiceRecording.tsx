@@ -1,51 +1,49 @@
-// In your VoiceRecording.tsx file, replace the sendAudioToN8n function:
-    setTranscript("Voice recording sent for processing");
-    onRecordingComplete("Voice recording processed");
-    setOfflineMode(false);
-    
-    return true;
-  } catch (error) {
-    console.error('n8n Error:', {
-      status: 'exception',
-      error: error,
-      timestamp: new Date().toISOString(),
-      audioSize: audioBlob.size,
-      audioType: audioBlob.type,
-      attempt: retryAttempt + 1
-    });
+import { useState, useRef, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Mic, Square, Loader2, RefreshCw, WifiOff, Wifi, AlertCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
-    // Retry logic for network errors
-    if (retryAttempt < MAX_RETRY_ATTEMPTS - 1) {
-      const delays = [0, 5000, 30000];
-      const delay = delays[retryAttempt];
-      
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return sendAudioToN8n(audioBlob, retryAttempt + 1);
-    }
+interface FailedRecording {
+  id: string;
+  audioData: string; // base64
+  timestamp: string;
+  duration: number;
+  attempts: number;
+  lastAttempt: string;
+}
 
-    // Save to localStorage after max retries
-    const audioData = await blobToBase64(audioBlob);
-    const failedRecording: FailedRecording = {
-      id: crypto.randomUUID(),
-      audioData,
-      timestamp: new Date().toISOString(),
-      duration: recordingDuration,
-      attempts: MAX_RETRY_ATTEMPTS,
-      lastAttempt: new Date().toISOString()
-    };
+type N8nStatus = "healthy" | "slow" | "down";
 
-    const updated = [...failedRecordings, failedRecording];
-    saveFailedRecordings(updated);
+const STORAGE_KEY = "failed_recordings";
+const MAX_RETRY_ATTEMPTS = 3;
+const AUTO_RETRY_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
-    setN8nStatus('down');
-    setOfflineMode(true);
+interface VoiceRecordingProps {
+  onRecordingComplete: (transcript: string) => void;
+}
 
-    toast({
-      title: "Connection Error",
-      description: "Recording saved locally and will sync when connection is restored.",
-      variant: "destructive",
-    });
+export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => {
+  const [isRecording, setIsRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [transcript, setTranscript] = useState("");
+  const [aiResponse, setAiResponse] = useState("");
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [n8nStatus, setN8nStatus] = useState<N8nStatus>("healthy");
+  const [failedRecordings, setFailedRecordings] = useState<FailedRecording[]>([]);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [offlineMode, setOfflineMode] = useState(false);
+  const { toast } = useToast();
 
-    return false;
-  }
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const autoRetryIntervalRef = useRef<number | null>(null);
+
+  // Load failed recordings from localStorage
 };
