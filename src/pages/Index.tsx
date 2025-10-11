@@ -6,14 +6,13 @@ import { FindingsPanel } from "@/components/FindingsPanel";
 import { ToothSelector } from "@/components/ToothSelector";
 import { PatientList } from "@/components/PatientList";
 import { PatientSelector } from "@/components/PatientSelector";
-import { StaffSelector } from "@/components/StaffSelector";
 import { EnhancedFindingsPanel } from "@/components/EnhancedFindingsPanel";
 import { SessionHistory } from "@/components/SessionHistory";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { ToothCondition, PatientInfo as PatientInfoType, Finding } from "@/types/dental";
-import { Patient, Dentist, Clinic, Session, EnhancedFinding } from "@/types/enhanced-dental";
+import { Patient, Session, EnhancedFinding } from "@/types/enhanced-dental";
 import { Undo2, Redo2, Moon, Sun, Play, RotateCcw, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -40,8 +39,6 @@ const Index = () => {
   
   // Enhanced session state
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [selectedDentist, setSelectedDentist] = useState<Dentist | null>(null);
-  const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
   const [enhancedFindings, setEnhancedFindings] = useState<EnhancedFinding[]>([]);
   const [sessionStarted, setSessionStarted] = useState(false);
 
@@ -215,16 +212,6 @@ const Index = () => {
           dateOfBirth: selectedPatient?.dateOfBirth,
           contact: selectedPatient?.contact,
         },
-        dentist: {
-          name: selectedDentist?.name,
-          id: selectedDentist?.id,
-          licenseNumber: selectedDentist?.licenseNumber,
-        },
-        clinic: {
-          name: selectedClinic?.name,
-          id: selectedClinic?.id,
-          address: selectedClinic?.address,
-        },
         findings: enhancedFindings.map(f => ({
           id: f.id,
           toothNumber: f.toothNumber,
@@ -268,10 +255,10 @@ const Index = () => {
   };
 
   const handleStartSession = () => {
-    if (!selectedPatient || !selectedDentist || !selectedClinic) {
+    if (!selectedPatient) {
       toast({
         title: "Missing Information",
-        description: "Please select patient, dentist, and clinic to start session",
+        description: "Please select a patient to start session",
         variant: "destructive",
       });
       return;
@@ -379,16 +366,10 @@ const Index = () => {
           <TabsContent value="session" className="space-y-6">
             {!sessionStarted ? (
               <div className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="max-w-2xl mx-auto">
                   <PatientSelector
                     selectedPatient={selectedPatient}
                     onSelectPatient={setSelectedPatient}
-                  />
-                  <StaffSelector
-                    selectedDentist={selectedDentist}
-                    selectedClinic={selectedClinic}
-                    onSelectDentist={setSelectedDentist}
-                    onSelectClinic={setSelectedClinic}
                   />
                 </div>
                 <div className="flex justify-center">
