@@ -18,6 +18,25 @@ const getToothColor = (condition: ToothCondition): string => {
   return colors[condition];
 };
 
+type ToothType = "molar" | "premolar" | "canine" | "incisor";
+
+const getToothType = (toothNumber: number): ToothType => {
+  // Molars: 1-3, 14-16, 17-19, 30-32
+  if ([1, 2, 3, 14, 15, 16, 17, 18, 19, 30, 31, 32].includes(toothNumber)) {
+    return "molar";
+  }
+  // Premolars: 4-5, 12-13, 20-21, 28-29
+  if ([4, 5, 12, 13, 20, 21, 28, 29].includes(toothNumber)) {
+    return "premolar";
+  }
+  // Canines: 6, 11, 22, 27
+  if ([6, 11, 22, 27].includes(toothNumber)) {
+    return "canine";
+  }
+  // Incisors: 7-10, 23-26
+  return "incisor";
+};
+
 const Tooth = ({ 
   number, 
   condition, 
@@ -33,25 +52,93 @@ const Tooth = ({
   y: number;
   rotation?: number;
 }) => {
+  const toothType = getToothType(number);
+  const fillColor = getToothColor(condition);
+  
+  const renderToothShape = () => {
+    switch (toothType) {
+      case "molar":
+        // Wide crown with multiple cusps and roots
+        return (
+          <g>
+            {/* Crown */}
+            <path
+              d="M -12,-15 Q -12,-25 -8,-28 Q -4,-30 0,-30 Q 4,-30 8,-28 Q 12,-25 12,-15 L 10,-5 Q 8,0 4,2 L 2,10 Q 1,15 0,15 Q -1,15 -2,10 L -4,2 Q -8,0 -10,-5 Z"
+              className={`${fillColor} stroke-border stroke-[1.5] transition-colors`}
+            />
+            {/* Roots */}
+            <path
+              d="M -6,15 L -8,35 M 0,15 L 0,35 M 6,15 L 8,35"
+              className="stroke-border stroke-[1.5] fill-none"
+            />
+          </g>
+        );
+      
+      case "premolar":
+        // Medium crown with two cusps and roots
+        return (
+          <g>
+            {/* Crown */}
+            <path
+              d="M -9,-15 Q -9,-25 -5,-28 Q 0,-30 5,-28 Q 9,-25 9,-15 L 7,-5 Q 5,0 2,2 L 1,10 Q 0,12 0,12 Q 0,12 -1,10 L -2,2 Q -5,0 -7,-5 Z"
+              className={`${fillColor} stroke-border stroke-[1.5] transition-colors`}
+            />
+            {/* Roots */}
+            <path
+              d="M -3,12 L -4,32 M 3,12 L 4,32"
+              className="stroke-border stroke-[1.5] fill-none"
+            />
+          </g>
+        );
+      
+      case "canine":
+        // Pointed crown with single root
+        return (
+          <g>
+            {/* Crown */}
+            <path
+              d="M -7,-12 Q -7,-25 -4,-28 Q 0,-32 4,-28 Q 7,-25 7,-12 L 5,-5 Q 3,0 1,5 L 0,8 L -1,5 Q -3,0 -5,-5 Z"
+              className={`${fillColor} stroke-border stroke-[1.5] transition-colors`}
+            />
+            {/* Root */}
+            <path
+              d="M 0,8 L 0,35"
+              className="stroke-border stroke-[1.5] fill-none"
+            />
+          </g>
+        );
+      
+      case "incisor":
+        // Narrow rectangular crown with single root
+        return (
+          <g>
+            {/* Crown */}
+            <path
+              d="M -6,-15 Q -6,-27 -3,-29 Q 0,-30 3,-29 Q 6,-27 6,-15 L 5,-5 Q 3,0 1,5 L 0,8 L -1,5 Q -3,0 -5,-5 Z"
+              className={`${fillColor} stroke-border stroke-[1.5] transition-colors`}
+            />
+            {/* Root */}
+            <path
+              d="M 0,8 L 0,30"
+              className="stroke-border stroke-[1.5] fill-none"
+            />
+          </g>
+        );
+    }
+  };
+  
   return (
     <g 
       className="cursor-pointer transition-opacity hover:opacity-80"
       onClick={onClick}
     >
       <g transform={`translate(${x}, ${y}) rotate(${rotation})`}>
-        <ellipse
-          cx="0"
-          cy="0"
-          rx="18"
-          ry="28"
-          className={`${getToothColor(condition)} stroke-border stroke-2 transition-colors`}
-        />
+        {renderToothShape()}
         <text
           x="0"
-          y="5"
+          y="-8"
           textAnchor="middle"
-          className="text-xs font-bold fill-card-foreground pointer-events-none select-none"
-          style={{ fontSize: '12px' }}
+          className="text-[9px] font-bold fill-card-foreground pointer-events-none select-none"
         >
           {number}
         </text>
@@ -64,9 +151,9 @@ export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => 
   // Calculate positions for upper arch teeth (1-16)
   const getUpperToothPosition = (toothNum: number) => {
     const centerX = 300;
-    const centerY = 180;
-    const radiusX = 220;
-    const radiusY = 110;
+    const centerY = 160;
+    const radiusX = 200;
+    const radiusY = 90;
     
     // Position teeth 1-8 on right side, 9-16 on left side of upper arch
     let position;
@@ -78,14 +165,14 @@ export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => 
       position = toothNum - 9;
     }
     
-    // Create horseshoe shape for upper arch (180° arc) with more spacing
+    // Create horseshoe shape for upper arch
     let angle;
     if (toothNum >= 1 && toothNum <= 8) {
-      // Right side: -90° to -5° (more spread)
-      angle = -90 + (position * 85 / 7);
+      // Right side: -80° to 0°
+      angle = -80 + (position * 80 / 7);
     } else {
-      // Left side: -175° to -90° (more spread)
-      angle = -175 + (position * 85 / 7);
+      // Left side: -180° to -100°
+      angle = -180 + (position * 80 / 7);
     }
     
     const angleRad = (angle * Math.PI) / 180;
@@ -99,9 +186,9 @@ export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => 
   // Calculate positions for lower arch teeth (17-32)
   const getLowerToothPosition = (toothNum: number) => {
     const centerX = 300;
-    const centerY = 320;
-    const radiusX = 220;
-    const radiusY = 110;
+    const centerY = 340;
+    const radiusX = 200;
+    const radiusY = 90;
     
     // Position teeth 17-24 on left side, 25-32 on right side of lower arch
     let position;
@@ -113,14 +200,14 @@ export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => 
       position = toothNum - 25;
     }
     
-    // Create horseshoe shape for lower arch (180° arc, mirrored) with more spacing
+    // Create horseshoe shape for lower arch (mirrored)
     let angle;
     if (toothNum >= 17 && toothNum <= 24) {
-      // Left side: 175° to 90° (more spread)
-      angle = 175 - (position * 85 / 7);
+      // Left side: 180° to 100°
+      angle = 180 - (position * 80 / 7);
     } else {
-      // Right side: 90° to 5° (more spread)
-      angle = 90 - (position * 85 / 7);
+      // Right side: 80° to 0°
+      angle = 80 - (position * 80 / 7);
     }
     
     const angleRad = (angle * Math.PI) / 180;
