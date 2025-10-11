@@ -23,29 +23,39 @@ interface StoredPatient {
   findings: Finding[];
 }
 
+// n8n webhook → Edge Function → front-end result
+type WorkflowResult = {
+  transcript?: string;
+  findings?: { toothNumber: number; condition: ToothCondition; confidence?: number; notes?: string }[];
+  teethStatus?: [number, ToothCondition][];
+};
+
 const Index = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { loading, createPatient, saveSession, getPatients } = useDentalData();
+
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [teethStatus, setTeethStatus] = useState<Map<number, ToothCondition>>(new Map());
   const [findings, setFindings] = useState<Finding[]>([]);
   const [selectedTooth, setSelectedTooth] = useState<number | null>(null);
   const [history, setHistory] = useState<Map<number, ToothCondition>[]>([new Map()]);
   const [historyIndex, setHistoryIndex] = useState(0);
+
   const [patientInfo, setPatientInfo] = useState<PatientInfoType>({
     name: "",
     sessionId: `SESSION-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     date: new Date().toISOString(),
   });
+
   const [allPatients, setAllPatients] = useState<any[]>([]);
   const [currentPatientId, setCurrentPatientId] = useState<string | null>(null);
-  
+
   // Enhanced session state
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [enhancedFindings, setEnhancedFindings] = useState<EnhancedFinding[]>([]);
 
-  // Load patients from database on mount
+  // Load patients from DB on mount
   useEffect(() => {
     loadPatients();
   }, []);
@@ -56,29 +66,24 @@ const Index = () => {
   };
 
   useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    if (isDarkMode) document.documentElement.classList.add("dark");
+    else document.documentElement.classList.remove("dark");
   }, [isDarkMode]);
 
-  const handleToothClick = (toothNumber: number) => {
-    setSelectedTooth(toothNumber);
-  };
+  const handleToothClick = (toothNumber: number) => setSelectedTooth(toothNumber);
 
   const updateToothStatus = (toothNumber: number, condition: ToothCondition, notes?: string) => {
     const newStatus = new Map(teethStatus);
     newStatus.set(toothNumber, condition);
     setTeethStatus(newStatus);
 
-    // Add to history
+    // History
     const newHistory = history.slice(0, historyIndex + 1);
     newHistory.push(new Map(newStatus));
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
 
-    // Add finding
+    // Legacy findings list
     const finding: Finding = {
       id: `${Date.now()}-${toothNumber}`,
       toothNumber,
@@ -88,39 +93,63 @@ const Index = () => {
     };
     setFindings([...findings, finding]);
 
-    // Add to enhanced findings with high confidence since it's manually entered
+    // Enhanced findings (manual entry = 100% + verified)
     const enhancedFinding: EnhancedFinding = {
       id: `${Date.now()}-${toothNumber}`,
       toothNumber,
       condition,
-      confidence: 100, // Manual entry = 100% confidence
-      verified: true, // Manual entry is automatically verified
+      confidence: 100,
+      verified: true,
       flagged: false,
       notes,
       timestamp: new Date().toISOString(),
     };
     setEnhancedFindings([...enhancedFindings, enhancedFinding]);
 
-    toast({
-      title: "Tooth Updated",
-      description: `Tooth ${toothNumber} marked as ${condition}`,
-    });
+    toast({ title: "Tooth Updated", description: `Tooth ${toothNumber} marked as ${condition}` });
   };
 
-  const handleRecordingComplete = (transcript: string) => {
-    // TODO: Parse transcript and update dental chart
-    // This is a placeholder - real implementation would use AI to parse
-    console.log("Processing transcript:", transcript);
+  // NEW: apply results coming back from n8n (via VoiceRecording)
+  const handleRecordingComplete = (result: WorkflowResult) => {
+    // Merge chart state
+    if (result.teethStatus?.length) {
+      const updated = new Map(teethStatus);
+      result.teethStatus.forEach(([num, cond]) => updated.set(num, cond));
+      setTeethStatus(updated);
+
+      // keep undo/redo consistent
+      const newHistory = history.slice(0, historyIndex + 1);
+      newHistory.push(new Map(updated));
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+    }
+
+    // Append AI findings to enhanced panel
+    if (result.findings?.length) {
+      setEnhancedFindings((prev) => [
+        ...prev,
+        ...result.findings.map((f) => ({
+          id: crypto.randomUUID(),
+          toothNumber: f.toothNumber,
+          condition: f.condition,
+          confidence: f.confidence ?? 80,
+          verified: false,
+          flagged: false,
+          notes: f.notes,
+          transcript: result.transcript,
+          timestamp: new Date().toISOString(),
+        })),
+      ]);
+    }
+
+    toast({ title: "Chart Updated", description: "Voice findings applied to the dental chart." });
   };
 
   const handleUndo = () => {
     if (historyIndex > 0) {
       setHistoryIndex(historyIndex - 1);
       setTeethStatus(new Map(history[historyIndex - 1]));
-      toast({
-        title: "Undo",
-        description: "Last change reverted",
-      });
+      toast({ title: "Undo", description: "Last change reverted" });
     }
   };
 
@@ -128,20 +157,15 @@ const Index = () => {
     if (historyIndex < history.length - 1) {
       setHistoryIndex(historyIndex + 1);
       setTeethStatus(new Map(history[historyIndex + 1]));
-      toast({
-        title: "Redo",
-        description: "Change reapplied",
-      });
+      toast({ title: "Redo", description: "Change reapplied" });
     }
   };
 
   const handleNewPatient = async () => {
-    // Save current session if there's data
     if (currentPatientId && (findings.length > 0 || teethStatus.size > 0)) {
       await saveSession(currentPatientId, teethStatus, findings);
     }
 
-    // Reset for new patient
     setTeethStatus(new Map());
     setFindings([]);
     setEnhancedFindings([]);
@@ -154,10 +178,8 @@ const Index = () => {
       sessionId: `SESSION-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       date: new Date().toISOString(),
     });
-    toast({
-      title: "New Patient",
-      description: "Previous patient saved. Ready for new patient.",
-    });
+
+    toast({ title: "New Patient", description: "Previous patient saved. Ready for new patient." });
   };
 
   const handleLoadPatient = (patient: StoredPatient) => {
@@ -166,11 +188,8 @@ const Index = () => {
     setFindings(patient.findings);
     setHistory([new Map(patient.teethStatus)]);
     setHistoryIndex(0);
-    
-    toast({
-      title: "Patient Loaded",
-      description: `Loaded ${patient.patientInfo.name || "patient"} record`,
-    });
+
+    toast({ title: "Patient Loaded", description: `Loaded ${patient.patientInfo.name || "patient"} record` });
   };
 
   const handleDemoMode = () => {
@@ -192,72 +211,65 @@ const Index = () => {
     ];
     setFindings(demoFindings);
 
-    // Also populate enhanced findings for the EnhancedFindingsPanel
     const demoEnhancedFindings: EnhancedFinding[] = [
-      { 
-        id: "demo-1", 
-        toothNumber: 1, 
-        condition: "removed", 
-        confidence: 100, 
-        verified: true, 
-        flagged: false, 
+      {
+        id: "demo-1",
+        toothNumber: 1,
+        condition: "removed",
+        confidence: 100,
+        verified: true,
+        flagged: false,
         notes: "Tooth extraction - demo data",
-        timestamp: new Date().toISOString() 
+        timestamp: new Date().toISOString(),
       },
-      { 
-        id: "demo-2", 
-        toothNumber: 8, 
-        condition: "cracked", 
-        confidence: 95, 
-        verified: true, 
-        flagged: false, 
+      {
+        id: "demo-2",
+        toothNumber: 8,
+        condition: "cracked",
+        confidence: 95,
+        verified: true,
+        flagged: false,
         notes: "Visible crack on surface - demo data",
-        timestamp: new Date().toISOString() 
+        timestamp: new Date().toISOString(),
       },
-      { 
-        id: "demo-3", 
-        toothNumber: 14, 
-        condition: "cavity", 
-        confidence: 90, 
-        verified: true, 
-        flagged: false, 
+      {
+        id: "demo-3",
+        toothNumber: 14,
+        condition: "cavity",
+        confidence: 90,
+        verified: true,
+        flagged: false,
         notes: "Cavity requiring filling - demo data",
-        timestamp: new Date().toISOString() 
+        timestamp: new Date().toISOString(),
       },
-      { 
-        id: "demo-4", 
-        toothNumber: 19, 
-        condition: "crown", 
-        confidence: 100, 
-        verified: true, 
-        flagged: false, 
+      {
+        id: "demo-4",
+        toothNumber: 19,
+        condition: "crown",
+        confidence: 100,
+        verified: true,
+        flagged: false,
         notes: "Crown placement - demo data",
-        timestamp: new Date().toISOString() 
+        timestamp: new Date().toISOString(),
       },
-      { 
-        id: "demo-5", 
-        toothNumber: 32, 
-        condition: "removed", 
-        confidence: 100, 
-        verified: true, 
-        flagged: false, 
+      {
+        id: "demo-5",
+        toothNumber: 32,
+        condition: "removed",
+        confidence: 100,
+        verified: true,
+        flagged: false,
         notes: "Wisdom tooth extraction - demo data",
-        timestamp: new Date().toISOString() 
+        timestamp: new Date().toISOString(),
       },
     ];
     setEnhancedFindings(demoEnhancedFindings);
 
-    toast({
-      title: "Demo Mode",
-      description: "Sample data loaded",
-    });
+    toast({ title: "Demo Mode", description: "Sample data loaded" });
   };
 
   const handleExportPDF = () => {
-    toast({
-      title: "Export PDF",
-      description: "PDF export feature coming soon",
-    });
+    toast({ title: "Export PDF", description: "PDF export feature coming soon" });
   };
 
   const handleSendToN8n = async () => {
@@ -280,7 +292,7 @@ const Index = () => {
           dateOfBirth: selectedPatient?.dateOfBirth,
           contact: selectedPatient?.contact,
         },
-        findings: enhancedFindings.map(f => ({
+        findings: enhancedFindings.map((f) => ({
           id: f.id,
           toothNumber: f.toothNumber,
           condition: f.condition,
@@ -294,58 +306,36 @@ const Index = () => {
         teethStatus: Array.from(teethStatus.entries()),
       };
 
-      const { data, error } = await supabase.functions.invoke('send-to-n8n', {
-        body: sessionData,
-      });
-
+      const { data, error } = await supabase.functions.invoke("send-to-n8n", { body: sessionData });
       if (error) throw error;
 
-      toast({
-        title: "Sent to Automation",
-        description: "Session data successfully sent to n8n workflow",
-      });
+      // If your n8n session workflow returns an updated JSON, you could also merge it here similar to handleRecordingComplete
+
+      toast({ title: "Sent to Automation", description: "Session data successfully sent to n8n workflow" });
     } catch (error) {
       console.error("Error sending to n8n:", error);
-      toast({
-        title: "Error",
-        description: "Failed to send session data to automation",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to send session data to automation", variant: "destructive" });
     }
   };
 
   const handleDeleteFinding = (id: string) => {
-    setFindings(findings.filter(f => f.id !== id));
-    toast({
-      title: "Finding Deleted",
-      description: "Finding removed from list",
-    });
+    setFindings(findings.filter((f) => f.id !== id));
+    toast({ title: "Finding Deleted", description: "Finding removed from list" });
   };
 
   const handleVerifyFinding = (id: string) => {
-    setEnhancedFindings(enhancedFindings.map(f => 
-      f.id === id ? { ...f, verified: true, flagged: false } : f
-    ));
-    toast({
-      title: "Finding Verified",
-      description: "Finding has been verified",
-    });
+    setEnhancedFindings(enhancedFindings.map((f) => (f.id === id ? { ...f, verified: true, flagged: false } : f)));
+    toast({ title: "Finding Verified", description: "Finding has been verified" });
   };
 
   const handleDeleteEnhancedFinding = (id: string) => {
-    setEnhancedFindings(enhancedFindings.filter(f => f.id !== id));
-    toast({
-      title: "Finding Deleted",
-      description: "Finding removed from session",
-    });
+    setEnhancedFindings(enhancedFindings.filter((f) => f.id !== id));
+    toast({ title: "Finding Deleted", description: "Finding removed from session" });
   };
 
   const handleLoadSession = (session: Session) => {
     console.log("Loading session:", session);
-    toast({
-      title: "Session Loaded",
-      description: `Loaded session for ${session.patientName}`,
-    });
+    toast({ title: "Session Loaded", description: `Loaded session for ${session.patientName}` });
   };
 
   const handlePatientSelect = (patient: Patient) => {
@@ -368,56 +358,34 @@ const Index = () => {
               <p className="text-sm text-muted-foreground mt-1">Professional Dental Charting System</p>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setIsDarkMode(!isDarkMode)}
-              >
+              <Button variant="outline" size="icon" onClick={() => setIsDarkMode(!isDarkMode)}>
                 {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </Button>
-              <Button
-                variant="outline"
-                onClick={handleNewPatient}
-                className="gap-2"
-              >
+              <Button variant="outline" onClick={handleNewPatient} className="gap-2">
                 <RotateCcw className="w-4 h-4" />
                 Restart
               </Button>
-              <Button
-                variant="outline"
-                onClick={handleDemoMode}
-                className="gap-2"
-              >
+              <Button variant="outline" onClick={handleDemoMode} className="gap-2">
                 <Play className="w-4 h-4" />
                 Demo Mode
               </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleUndo}
-                disabled={historyIndex === 0}
-              >
+              <Button variant="outline" size="icon" onClick={handleUndo} disabled={historyIndex === 0}>
                 <Undo2 className="w-5 h-5" />
+              </Button>
+              <Button variant="outline" size="icon" onClick={handleRedo} disabled={historyIndex === history.length - 1}>
+                <LogOut className="w-4 h-4" />
               </Button>
               <Button
                 variant="outline"
-                size="icon"
-                onClick={handleRedo}
-                disabled={historyIndex === history.length - 1}
+                onClick={() => {
+                  supabase.auth.signOut();
+                  navigate("/auth");
+                }}
+                className="gap-2"
               >
-              <LogOut className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                supabase.auth.signOut();
-                navigate('/auth');
-              }}
-              className="gap-2"
-            >
-              <LogOut className="w-4 h-4" />
-              Sign Out
-            </Button>
+                <LogOut className="w-4 h-4" />
+                Sign Out
+              </Button>
             </div>
           </div>
         </div>
@@ -444,10 +412,7 @@ const Index = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Dental Chart */}
               <div className="lg:col-span-2">
-                <DentalChart
-                  teethStatus={teethStatus}
-                  onToothClick={handleToothClick}
-                />
+                <DentalChart teethStatus={teethStatus} onToothClick={handleToothClick} />
               </div>
 
               {/* Enhanced Findings Panel */}
@@ -466,11 +431,7 @@ const Index = () => {
             {/* Send to Automation */}
             {enhancedFindings.length > 0 && (
               <div className="flex justify-center">
-                <Button 
-                  onClick={handleSendToN8n}
-                  className="gap-2"
-                  size="lg"
-                >
+                <Button onClick={handleSendToN8n} className="gap-2" size="lg">
                   <Send className="w-4 h-4" />
                   Send Session to Automation
                 </Button>
@@ -480,10 +441,7 @@ const Index = () => {
             {/* Legacy Patient List */}
             <div className="mt-8">
               <h3 className="text-lg font-semibold mb-4">Previous Patients (Legacy)</h3>
-              <PatientList 
-                patients={allPatients}
-                onLoadPatient={handleLoadPatient}
-              />
+              <PatientList patients={allPatients} onLoadPatient={handleLoadPatient} />
             </div>
           </TabsContent>
 

@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ToothCondition } from "@/types/dental";
 
 interface FailedRecording {
   id: string;
@@ -21,8 +22,15 @@ const STORAGE_KEY = "failed_recordings";
 const MAX_RETRY_ATTEMPTS = 3;
 const AUTO_RETRY_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
+// Result returned from n8n (via Edge Function)
+type WorkflowResult = {
+  transcript?: string;
+  findings?: { toothNumber: number; condition: ToothCondition; confidence?: number; notes?: string }[];
+  teethStatus?: [number, ToothCondition][];
+};
+
 interface VoiceRecordingProps {
-  onRecordingComplete: (transcript: string) => void;
+  onRecordingComplete?: (result: WorkflowResult) => void;
 }
 
 export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => {
@@ -63,7 +71,7 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
     setFailedRecordings(recordings);
   };
 
-  // Convert blob to base64
+  // Convert blob to base64 (data URL)
   const blobToBase64 = (blob: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -73,7 +81,7 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
     });
   };
 
-  // Convert base64 to blob
+  // Convert base64 (data URL) to blob
   const base64ToBlob = (base64: string): Blob => {
     const arr = base64.split(",");
     const mime = arr[0].match(/:(.*?);/)?.[1] || "audio/webm";
@@ -116,7 +124,7 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
       animationFrameRef.current = requestAnimationFrame(draw);
       analyser.getByteTimeDomainData(dataArray);
 
-      // Clear canvas with background color
+      // Clear canvas
       canvasCtx.fillStyle = "#000000";
       canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -132,11 +140,8 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
         const v = dataArray[i] / 128.0;
         const y = (v * canvas.height) / 2;
 
-        if (i === 0) {
-          canvasCtx.moveTo(x, y);
-        } else {
-          canvasCtx.lineTo(x, y);
-        }
+        if (i === 0) canvasCtx.moveTo(x, y);
+        else canvasCtx.lineTo(x, y);
 
         x += sliceWidth;
       }
@@ -158,17 +163,15 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      // Set up audio analysis for waveform
+      // Waveform
       audioContextRef.current = new AudioContext();
       analyserRef.current = audioContextRef.current.createAnalyser();
       const source = audioContextRef.current.createMediaStreamSource(stream);
       source.connect(analyserRef.current);
       analyserRef.current.fftSize = 2048;
-
       drawWaveform();
 
-      // Set up MediaRecorder with MP3 format (preferred)
-      // Try MP3 first, fallback to webm if not supported
+      // Choose supported mime type
       let mimeType = "audio/webm";
       if (MediaRecorder.isTypeSupported("audio/mp4")) {
         mimeType = "audio/mp4";
@@ -177,42 +180,27 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
       }
 
       mediaRecorderRef.current = new MediaRecorder(stream, { mimeType });
-
       mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
 
       mediaRecorderRef.current.onstop = async () => {
-        // Create blob with the recorded mime type
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         setIsProcessing(true);
         await sendAudioToN8n(audioBlob);
         setIsProcessing(false);
 
         // Clean up
-        stream.getTracks().forEach((track) => track.stop());
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-        }
-        if (audioContextRef.current) {
-          audioContextRef.current.close();
-        }
+        stream.getTracks().forEach((t) => t.stop());
+        if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+        if (audioContextRef.current) audioContextRef.current.close();
       };
 
       mediaRecorderRef.current.start();
 
-      // Start timer
-      const timer = setInterval(() => {
-        setRecordingDuration((prev) => prev + 1);
-      }, 1000);
-
-      toast({
-        title: "Recording Started",
-        description: "Speak your dental findings...",
-      });
-
+      // Timer
+      const timer = setInterval(() => setRecordingDuration((prev) => prev + 1), 1000);
+      toast({ title: "Recording Started", description: "Speak your dental findings..." });
       (window as any).recordingTimer = timer;
     } catch (error) {
       console.error("Error starting recording:", error);
@@ -229,18 +217,16 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
     const startTime = Date.now();
 
     try {
-      // Validate audio data
       if (!audioBlob.size || audioBlob.size === 0) {
         toast({
           title: "Recording Error",
-          description:
-            "Recording failed. No audio data captured. Please check your microphone permissions and try again.",
+          description: "No audio captured. Check your microphone and try again.",
           variant: "destructive",
         });
         return false;
       }
 
-      // Determine file extension from blob type
+      // Infer extension
       const mimeType = audioBlob.type || "audio/webm";
       const extension = mimeType.includes("mp4")
         ? "mp4"
@@ -250,14 +236,6 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
             ? "webm"
             : "webm";
 
-      console.log("Preparing audio for upload:", {
-        fileName: `input.${extension}`,
-        type: mimeType,
-        size: audioBlob.size,
-        duration: recordingDuration,
-        attempt: retryAttempt + 1,
-      });
-
       if (retryAttempt > 0) {
         toast({
           title: "Retrying Upload",
@@ -265,69 +243,43 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
         });
       }
 
-      // Convert blob to base64 and send as JSON
+      // Convert to base64 (no data URL prefix)
       const arrayBuffer = await audioBlob.arrayBuffer();
       const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
 
-      // Create JSON payload
       const payload = {
         audioData: base64Audio,
-        mimeType: mimeType,
+        mimeType,
         fileName: `input.${extension}`,
         timestamp: new Date().toISOString(),
         duration: recordingDuration.toString(),
         type: "voice_recording",
       };
 
-      console.log("Sending JSON payload:", {
-        fileName: payload.fileName,
-        mimeType: payload.mimeType,
-        audioDataLength: base64Audio.length,
-        duration: payload.duration,
-      });
-
-      // Get current session for authentication
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('Not authenticated');
-      }
+      // Auth
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
 
       const { data, error } = await supabase.functions.invoke("send-to-n8n", {
         body: payload,
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
 
       const responseTime = Date.now() - startTime;
-
-      // Update n8n status based on response time
-      if (responseTime > 5000) {
-        setN8nStatus("slow");
-      } else {
-        setN8nStatus("healthy");
-      }
+      setN8nStatus(responseTime > 5000 ? "slow" : "healthy");
 
       if (error) {
-        console.error("n8n Error:", {
-          status: "error",
-          error: error,
-          timestamp: new Date().toISOString(),
-          audioSize: audioBlob.size,
-          audioType: audioBlob.type,
-          responseTime,
-          attempt: retryAttempt + 1,
-        });
+        console.error("n8n Error:", { error, responseTime, attempt: retryAttempt + 1 });
 
-        // Check for 500 error
         const errorMsg = error.message?.toLowerCase() || "";
         if (errorMsg.includes("500") || errorMsg.includes("internal server")) {
+          // Save offline
           setN8nStatus("down");
           setOfflineMode(true);
-
-          // Save to localStorage
           const audioData = await blobToBase64(audioBlob);
-          const failedRecording: FailedRecording = {
+          const failed: FailedRecording = {
             id: crypto.randomUUID(),
             audioData,
             timestamp: new Date().toISOString(),
@@ -335,32 +287,25 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
             attempts: retryAttempt + 1,
             lastAttempt: new Date().toISOString(),
           };
-
-          const updated = [...failedRecordings, failedRecording];
-          saveFailedRecordings(updated);
-
+          saveFailedRecordings([...failedRecordings, failed]);
           toast({
             title: "Working Offline",
-            description:
-              "Voice processing temporarily unavailable. Your recording has been saved locally and will be processed when the service is restored.",
+            description: "Saved locally. Will retry when service is back.",
             variant: "destructive",
           });
-
           return false;
         }
 
-        // For other errors, retry with exponential backoff
+        // Other errors → retry
         if (retryAttempt < MAX_RETRY_ATTEMPTS - 1) {
-          const delays = [0, 5000, 30000]; // immediate, 5s, 30s
-          const delay = delays[retryAttempt];
-
-          await new Promise((resolve) => setTimeout(resolve, delay));
+          const delays = [0, 5000, 30000];
+          await new Promise((r) => setTimeout(r, delays[retryAttempt]));
           return sendAudioToN8n(audioBlob, retryAttempt + 1);
         }
 
-        // Max retries exceeded
+        // Max retries exceeded → save locally
         const audioData = await blobToBase64(audioBlob);
-        const failedRecording: FailedRecording = {
+        const failed: FailedRecording = {
           id: crypto.randomUUID(),
           audioData,
           timestamp: new Date().toISOString(),
@@ -368,54 +313,43 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
           attempts: MAX_RETRY_ATTEMPTS,
           lastAttempt: new Date().toISOString(),
         };
-
-        const updated = [...failedRecordings, failedRecording];
-        saveFailedRecordings(updated);
-
+        saveFailedRecordings([...failedRecordings, failed]);
         toast({
           title: "Upload Failed",
-          description: "Recording saved locally. Use 'Retry Failed Uploads' to try again.",
+          description: "Saved locally. Use 'Retry Failed Uploads' later.",
           variant: "destructive",
         });
-
         return false;
       }
 
       toast({
         title: "Recording Sent",
         description:
-          retryAttempt > 0
-            ? "Recording uploaded successfully!"
-            : "Voice recording sent successfully to automation workflow",
+          retryAttempt > 0 ? "Recording uploaded successfully!" : "Voice recording sent to automation workflow",
       });
 
-      setTranscript("Voice recording sent for processing");
-      onRecordingComplete("Voice recording processed");
-      setOfflineMode(false);
+      // IMPORTANT: Pass n8n JSON back to the parent so Index can update the chart
+      setTranscript(data?.transcript ?? "Voice recording processed");
+      onRecordingComplete?.({
+        transcript: data?.transcript,
+        findings: data?.findings ?? [],
+        teethStatus: data?.teethStatus ?? [],
+      });
 
+      setOfflineMode(false);
       return true;
     } catch (error) {
-      console.error("n8n Error:", {
-        status: "exception",
-        error: error,
-        timestamp: new Date().toISOString(),
-        audioSize: audioBlob.size,
-        audioType: audioBlob.type,
-        attempt: retryAttempt + 1,
-      });
+      console.error("n8n Error (exception):", { error, attempt: retryAttempt + 1 });
 
-      // Retry logic for network errors
       if (retryAttempt < MAX_RETRY_ATTEMPTS - 1) {
         const delays = [0, 5000, 30000];
-        const delay = delays[retryAttempt];
-
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        await new Promise((r) => setTimeout(r, delays[retryAttempt]));
         return sendAudioToN8n(audioBlob, retryAttempt + 1);
       }
 
-      // Save to localStorage after max retries
+      // Save after max retries
       const audioData = await blobToBase64(audioBlob);
-      const failedRecording: FailedRecording = {
+      const failed: FailedRecording = {
         id: crypto.randomUUID(),
         audioData,
         timestamp: new Date().toISOString(),
@@ -423,16 +357,13 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
         attempts: MAX_RETRY_ATTEMPTS,
         lastAttempt: new Date().toISOString(),
       };
-
-      const updated = [...failedRecordings, failedRecording];
-      saveFailedRecordings(updated);
+      saveFailedRecordings([...failedRecordings, failed]);
 
       setN8nStatus("down");
       setOfflineMode(true);
-
       toast({
         title: "Connection Error",
-        description: "Recording saved locally and will sync when connection is restored.",
+        description: "Saved locally. Will sync when connection is restored.",
         variant: "destructive",
       });
 
@@ -442,7 +373,6 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
 
   const retryFailedRecordings = async () => {
     if (failedRecordings.length === 0 || isRetrying) return;
-
     setIsRetrying(true);
     const remaining: FailedRecording[] = [];
 
@@ -450,9 +380,7 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
       try {
         const blob = base64ToBlob(recording.audioData);
         const success = await sendAudioToN8n(blob, recording.attempts);
-
         if (!success) {
-          // Keep in queue if failed
           remaining.push({
             ...recording,
             attempts: recording.attempts + 1,
@@ -469,10 +397,7 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
     setIsRetrying(false);
 
     if (remaining.length === 0) {
-      toast({
-        title: "All Recordings Uploaded",
-        description: "Successfully synced all offline recordings!",
-      });
+      toast({ title: "All Recordings Uploaded", description: "All offline recordings synced!" });
       setOfflineMode(false);
     }
   };
@@ -480,41 +405,25 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
   const stopRecording = async () => {
     try {
       setIsRecording(false);
-
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
         mediaRecorderRef.current.stop();
       }
-
       if ((window as any).recordingTimer) {
         clearInterval((window as any).recordingTimer);
         (window as any).recordingTimer = null;
       }
-
-      toast({
-        title: "Recording Stopped",
-        description: "Processing and sending to automation...",
-      });
+      toast({ title: "Recording Stopped", description: "Processing and sending to automation..." });
     } catch (error) {
       console.error("Error stopping recording:", error);
-      toast({
-        title: "Error",
-        description: "Failed to stop recording",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to stop recording", variant: "destructive" });
     }
   };
 
   useEffect(() => {
     return () => {
-      if ((window as any).recordingTimer) {
-        clearInterval((window as any).recordingTimer);
-      }
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
+      if ((window as any).recordingTimer) clearInterval((window as any).recordingTimer);
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (audioContextRef.current) audioContextRef.current.close();
     };
   }, []);
 
@@ -527,7 +436,7 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
   return (
     <div className="bg-card border border-border rounded-lg p-8 shadow-sm">
       <div className="flex flex-col items-center space-y-6">
-        {/* Status Indicator */}
+        {/* Status */}
         <div className="w-full flex items-center justify-between">
           <Badge
             variant={n8nStatus === "healthy" ? "default" : n8nStatus === "slow" ? "secondary" : "destructive"}
@@ -555,7 +464,7 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
           )}
         </div>
 
-        {/* Offline Mode Banner */}
+        {/* Offline banner */}
         {offlineMode && (
           <Alert variant="destructive" className="w-full">
             <WifiOff className="h-4 w-4" />
@@ -563,7 +472,7 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
           </Alert>
         )}
 
-        {/* Recording Button */}
+        {/* Record/Stop */}
         <div className="relative">
           {isRecording ? (
             <Button
@@ -595,7 +504,6 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
             </Button>
           )}
 
-          {/* Recording Indicator */}
           {isRecording && (
             <div className="absolute inset-0 -m-4 pointer-events-none">
               <div className="w-full h-full rounded-full bg-recording-glow animate-pulse-recording" />
@@ -603,7 +511,7 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
           )}
         </div>
 
-        {/* Waveform Visualization */}
+        {/* Waveform */}
         {isRecording && (
           <div className="w-full max-w-md space-y-4">
             <canvas
@@ -626,7 +534,7 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
           </p>
         )}
 
-        {/* Transcript */}
+        {/* Transcript and AI confirmation (optional) */}
         {transcript && (
           <div className="w-full space-y-4">
             <div className="bg-accent rounded-lg p-4">
