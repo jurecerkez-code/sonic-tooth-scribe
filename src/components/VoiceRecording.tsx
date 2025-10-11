@@ -89,8 +89,16 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
 
       drawWaveform();
 
-      // Set up MediaRecorder
-      mediaRecorderRef.current = new MediaRecorder(stream);
+      // Set up MediaRecorder with MP3 format (preferred)
+      // Try MP3 first, fallback to webm if not supported
+      let mimeType = 'audio/webm';
+      if (MediaRecorder.isTypeSupported('audio/mp4')) {
+        mimeType = 'audio/mp4';
+      } else if (MediaRecorder.isTypeSupported('audio/mpeg')) {
+        mimeType = 'audio/mpeg';
+      }
+      
+      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType });
       
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -99,7 +107,8 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
       };
 
       mediaRecorderRef.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        // Create blob with the recorded mime type
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         await sendAudioToN8n(audioBlob);
         
         // Clean up
@@ -139,6 +148,20 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
   const sendAudioToN8n = async (audioBlob: Blob) => {
     setIsProcessing(true);
     try {
+      // Validate audio format
+      const supportedFormats = ['audio/mp3', 'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/flac', 
+                                'audio/m4a', 'audio/mp4', 'audio/mpga', 'audio/oga', 'audio/webm'];
+      
+      if (!supportedFormats.some(format => audioBlob.type.includes(format.split('/')[1]))) {
+        toast({
+          title: "Unsupported Format",
+          description: "Please use MP3 format for voice recordings. Other supported formats are wav, ogg, flac, m4a, mp4, mpeg, mpga, oga, webm.",
+          variant: "destructive",
+        });
+        setIsProcessing(false);
+        return;
+      }
+
       // Convert blob to base64
       const reader = new FileReader();
       reader.readAsDataURL(audioBlob);
@@ -148,13 +171,27 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
           try {
             const base64Audio = (reader.result as string).split(',')[1];
             
+            // Determine file extension based on mime type
+            const fileExtension = audioBlob.type.includes('mp4') || audioBlob.type.includes('mpeg') 
+              ? 'mp3' 
+              : audioBlob.type.split('/')[1] || 'mp3';
+            
             const sessionData = {
               type: 'voice_recording',
               timestamp: new Date().toISOString(),
               audioData: base64Audio,
               duration: recordingDuration,
-              format: 'audio/webm',
+              format: 'audio/mp3',
+              mimeType: audioBlob.type,
+              extension: fileExtension,
             };
+
+            console.log('Sending audio to n8n:', {
+              format: sessionData.format,
+              mimeType: sessionData.mimeType,
+              extension: sessionData.extension,
+              size: audioBlob.size
+            });
 
             const { data, error } = await supabase.functions.invoke('send-to-n8n', {
               body: sessionData,
@@ -162,6 +199,16 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
 
             if (error) {
               console.error("Supabase function error:", error);
+              
+              // Check for format-related errors
+              if (error.message?.toLowerCase().includes('format') || 
+                  error.message?.toLowerCase().includes('unsupported')) {
+                toast({
+                  title: "Format Error",
+                  description: "Voice upload failed: Unsupported file format. Please record or upload your audio as an MP3 file for best results.",
+                  variant: "destructive",
+                });
+              }
               reject(error);
               return;
             }
@@ -183,13 +230,24 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
     } catch (error) {
       console.error("Error sending audio:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      
+      // Enhanced error messages
+      let errorDescription = "Failed to send recording. Please try again.";
+      
+      if (errorMessage.includes("404")) {
+        errorDescription = "Automation workflow not active. Please activate the workflow in n8n and try again.";
+      } else if (errorMessage.includes("Webhook")) {
+        errorDescription = "Webhook configuration error. Please check your automation settings.";
+      } else if (errorMessage.toLowerCase().includes('format') || 
+                 errorMessage.toLowerCase().includes('unsupported')) {
+        errorDescription = "Voice upload failed: Unsupported file format. Please record your audio as MP3 for best results.";
+      } else if (errorMessage.includes("500")) {
+        errorDescription = "Server error processing audio. Ensure n8n is configured to accept 'audio' binary data and OpenAI can process the format.";
+      }
+      
       toast({
         title: "Error Sending Recording",
-        description: errorMessage.includes("404") 
-          ? "Automation workflow not active. Please activate the workflow in n8n and try again."
-          : errorMessage.includes("Webhook") 
-          ? "Webhook configuration error. Please check your automation settings."
-          : "Failed to send recording. Please try again.",
+        description: errorDescription,
         variant: "destructive",
       });
     } finally {
