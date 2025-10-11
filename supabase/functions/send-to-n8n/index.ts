@@ -12,16 +12,23 @@ serve(async (req) => {
   }
 
   try {
-    const webhookUrl = 'https://n8n.linn.games/webhook-test/voice-process';
+    const webhookUrl = Deno.env.get('N8N_WEBHOOK_URL');
+    
+    if (!webhookUrl) {
+      console.error('N8N_WEBHOOK_URL not configured');
+      return new Response(
+        JSON.stringify({ error: 'Webhook URL not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const sessionData = await req.json();
     
-    console.log('=== N8N Webhook Call Debug ===');
-    console.log('Webhook URL:', webhookUrl);
-    console.log('Session Data Type:', sessionData.type);
-    console.log('Timestamp:', sessionData.timestamp);
-    console.log('Has Audio Data:', !!sessionData.audioData);
-    console.log('Audio Data Length:', sessionData.audioData?.length || 0);
-    console.log('==============================');
+    console.log('Sending session data to n8n webhook:', {
+      webhookUrl,
+      sessionId: sessionData.sessionId,
+      patientName: sessionData.patientInfo?.name
+    });
 
     const response = await fetch(webhookUrl, {
       method: 'POST',
@@ -36,19 +43,12 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('=== N8N Webhook Error ===');
-      console.error('Status:', response.status);
-      console.error('Status Text:', response.statusText);
-      console.error('Response Body:', errorText);
-      console.error('========================');
-      throw new Error(`Webhook responded with ${response.status}: ${errorText}`);
+      console.error('n8n webhook error:', response.status, response.statusText);
+      throw new Error(`Webhook responded with ${response.status}`);
     }
 
     const result = await response.text();
-    console.log('=== N8N Success ===');
-    console.log('Response:', result);
-    console.log('===================');
+    console.log('n8n webhook response:', result);
 
     return new Response(
       JSON.stringify({ 

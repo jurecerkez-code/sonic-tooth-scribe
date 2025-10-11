@@ -161,35 +161,28 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
             });
 
             if (error) {
-              console.error("Supabase function error:", error);
               reject(error);
               return;
             }
 
             toast({
               title: "Recording Sent",
-              description: "Voice recording sent successfully to automation workflow",
+              description: "Voice recording sent to automation workflow",
             });
 
-            setTranscript("Voice recording sent for processing");
+            setTranscript("Voice recording sent to n8n for processing");
             onRecordingComplete("Voice recording processed");
             resolve(data);
           } catch (err) {
-            console.error("Error in sendAudioToN8n:", err);
             reject(err);
           }
         };
       });
     } catch (error) {
       console.error("Error sending audio:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
       toast({
-        title: "Error Sending Recording",
-        description: errorMessage.includes("404") 
-          ? "Automation workflow not active. Please activate the workflow in n8n and try again."
-          : errorMessage.includes("Webhook") 
-          ? "Webhook configuration error. Please check your automation settings."
-          : "Failed to send recording. Please try again.",
+        title: "Error",
+        description: "Failed to send recording. Please check your automation webhook configuration.",
         variant: "destructive",
       });
     } finally {
