@@ -19,7 +19,7 @@ serve(async (req) => {
     console.log("Method:", req.method);
 
     // Parse JSON body (NOT formData)
-    const body = await request.json(); // ✅ Use this instead
+    const body = await req.json(); // ✅ Fixed: changed 'request' to 'req'
 
     console.log("Request Type:", body.type);
     console.log("Has audioData:", !!body.audioData);
