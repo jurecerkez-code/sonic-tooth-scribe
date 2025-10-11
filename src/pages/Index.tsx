@@ -81,6 +81,19 @@ const Index = () => {
     };
     setFindings([...findings, finding]);
 
+    // Add to enhanced findings with high confidence since it's manually entered
+    const enhancedFinding: EnhancedFinding = {
+      id: `${Date.now()}-${toothNumber}`,
+      toothNumber,
+      condition,
+      confidence: 100, // Manual entry = 100% confidence
+      verified: true, // Manual entry is automatically verified
+      flagged: false,
+      notes,
+      timestamp: new Date().toISOString(),
+    };
+    setEnhancedFindings([...enhancedFindings, enhancedFinding]);
+
     toast({
       title: "Tooth Updated",
       description: `Tooth ${toothNumber} marked as ${condition}`,
