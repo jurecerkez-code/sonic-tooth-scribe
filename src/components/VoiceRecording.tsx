@@ -49,37 +49,23 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
   const stopRecording = async () => {
     try {
       setIsRecording(false);
-      setIsProcessing(true);
 
       // Clear timer
       if ((window as any).recordingTimer) {
         clearInterval((window as any).recordingTimer);
       }
 
-      // TODO: Process recording with Livekit and send to n8n
-      // Simulated response for now
-      setTimeout(() => {
-        const mockTranscript = "Tooth 14 has a cavity on the occlusal surface";
-        const mockAiResponse = "Confirmed: Marking tooth 14 with cavity status";
-        
-        setTranscript(mockTranscript);
-        setAiResponse(mockAiResponse);
-        onRecordingComplete(mockTranscript);
-        setIsProcessing(false);
-        
-        toast({
-          title: "Recording Processed",
-          description: "Dental chart updated successfully",
-        });
-      }, 1500);
+      toast({
+        title: "Recording Stopped",
+        description: "Recording has been cancelled",
+      });
     } catch (error) {
       console.error("Error stopping recording:", error);
       toast({
         title: "Error",
-        description: "Failed to process recording",
+        description: "Failed to stop recording",
         variant: "destructive",
       });
-      setIsProcessing(false);
     }
   };
 
