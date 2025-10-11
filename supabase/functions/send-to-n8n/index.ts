@@ -26,42 +26,37 @@ serve(async (req) => {
 
   try {
     // Validate authentication
-    const authHeader = req.headers.get('Authorization');
+    const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }), 
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Get webhook URL from environment variable
-    const webhookUrl = Deno.env.get('N8N_WEBHOOK_URL') || "https://n8n.linn.games/webhook-test/voice-process";
-    
+    const webhookUrl = Deno.env.get("N8N_WEBHOOK_URL") || "https://nileneb.app.n8n.cloud/webhook-test/voice-process";
+
     // Initialize Supabase client to verify token
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    const supabaseClient = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
+      global: { headers: { Authorization: authHeader } },
+    });
 
     // Verify the user is authenticated
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseClient.auth.getUser();
     if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid authentication' }), 
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return new Response(JSON.stringify({ error: "Invalid authentication" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Debug logging (minimal in production)
     const ct = (req.headers.get("content-type") || "").toLowerCase();
-    if (Deno.env.get('ENVIRONMENT') === 'development') {
+    if (Deno.env.get("ENVIRONMENT") === "development") {
       console.log("=== Incoming Request Debug ===");
       console.log("Edge Version:", "v3-json-only");
       console.log("Content-Type:", ct);
@@ -72,30 +67,24 @@ serve(async (req) => {
     // Enforce JSON-only - reject non-JSON requests
     if (!ct.includes("application/json")) {
       console.error("Rejected: Content-Type must be application/json");
-      return new Response(
-        JSON.stringify({ error: "Expected application/json" }), 
-        {
-          status: 415,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return new Response(JSON.stringify({ error: "Expected application/json" }), {
+        status: 415,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Read body exactly once as text, then parse JSON
     const raw = await req.text();
     let body: any;
-    
+
     try {
       body = JSON.parse(raw || "{}");
     } catch (e) {
       console.error("JSON parse failed:", e);
-      return new Response(
-        JSON.stringify({ error: "Invalid JSON body" }), 
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     console.log("Request Type:", body.type);
@@ -104,13 +93,10 @@ serve(async (req) => {
     // Validate audioData
     if (!body.audioData || typeof body.audioData !== "string") {
       console.error("Missing or invalid audioData");
-      return new Response(
-        JSON.stringify({ error: "No audio data provided" }), 
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return new Response(JSON.stringify({ error: "No audio data provided" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Normalize data URLs - strip prefix if present (e.g., "data:audio/webm;base64,")
@@ -156,14 +142,14 @@ serve(async (req) => {
       console.error("========================");
 
       return new Response(
-        JSON.stringify({ 
-          error: `Webhook responded with ${response.status}`, 
-          details: errorText 
-        }), 
+        JSON.stringify({
+          error: `Webhook responded with ${response.status}`,
+          details: errorText,
+        }),
         {
           status: response.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        },
       );
     }
 
@@ -174,7 +160,6 @@ serve(async (req) => {
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-
   } catch (error) {
     console.error("=== Error in Edge Function ===");
     console.error("Error:", error);
@@ -182,14 +167,14 @@ serve(async (req) => {
 
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
-      JSON.stringify({ 
-        error: errorMessage, 
-        details: "Failed to process audio request" 
-      }), 
+      JSON.stringify({
+        error: errorMessage,
+        details: "Failed to process audio request",
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
     );
   }
 });
