@@ -5,7 +5,6 @@ import { VoiceRecording } from "@/components/VoiceRecording";
 import { FindingsPanel } from "@/components/FindingsPanel";
 import { ToothSelector } from "@/components/ToothSelector";
 import { PatientList } from "@/components/PatientList";
-import { PatientSelector } from "@/components/PatientSelector";
 import { EnhancedFindingsPanel } from "@/components/EnhancedFindingsPanel";
 import { SessionHistory } from "@/components/SessionHistory";
 import { Button } from "@/components/ui/button";
@@ -354,20 +353,12 @@ const Index = () => {
 
           <TabsContent value="session" className="space-y-6">
             {/* Patient Info */}
-            <div className="grid md:grid-cols-3 gap-6">
-              <div className="md:col-span-2">
-                <PatientInfo
-                  patientInfo={patientInfo}
-                  onPatientNameChange={(name) => setPatientInfo({ ...patientInfo, name })}
-                  onNewPatient={handleNewPatient}
-                />
-              </div>
-              <div>
-                <PatientSelector
-                  selectedPatient={selectedPatient}
-                  onSelectPatient={handlePatientSelect}
-                />
-              </div>
+            <div>
+              <PatientInfo
+                patientInfo={patientInfo}
+                onPatientNameChange={(name) => setPatientInfo({ ...patientInfo, name })}
+                onNewPatient={handleNewPatient}
+              />
             </div>
 
             {/* Main Content Grid */}

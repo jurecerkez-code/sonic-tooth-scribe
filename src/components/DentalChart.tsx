@@ -21,37 +21,39 @@ const getToothColor = (condition: ToothCondition): string => {
 const Tooth = ({ 
   number, 
   condition, 
-  onClick 
+  onClick,
+  x,
+  y,
+  rotation = 0
 }: { 
   number: number; 
   condition: ToothCondition; 
   onClick: () => void;
+  x: number;
+  y: number;
+  rotation?: number;
 }) => {
   return (
-    <div 
-      className="relative group cursor-pointer"
+    <g 
+      className="cursor-pointer transition-transform hover:scale-110"
       onClick={onClick}
+      transform={`translate(${x}, ${y}) rotate(${rotation})`}
+      style={{ transformOrigin: '20px 30px' }}
     >
-      <svg 
-        width="40" 
-        height="60" 
-        viewBox="0 0 40 60" 
-        className="transition-transform hover:scale-110"
+      <path
+        d="M20 5 Q10 10, 10 25 Q10 45, 15 55 Q20 60, 25 55 Q30 45, 30 25 Q30 10, 20 5 Z"
+        className={`${getToothColor(condition)} stroke-border stroke-2 transition-colors`}
+      />
+      <text
+        x="20"
+        y="35"
+        textAnchor="middle"
+        className="text-xs font-semibold fill-card-foreground pointer-events-none"
+        transform={`rotate(${-rotation}, 20, 35)`}
       >
-        <path
-          d="M20 5 Q10 10, 10 25 Q10 45, 15 55 Q20 60, 25 55 Q30 45, 30 25 Q30 10, 20 5 Z"
-          className={`${getToothColor(condition)} stroke-border stroke-2 transition-colors`}
-        />
-      </svg>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-xs font-semibold text-card-foreground">{number}</span>
-      </div>
-      <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <span className="text-xs bg-card border border-border rounded px-2 py-1 whitespace-nowrap shadow-lg">
-          Tooth {number}
-        </span>
-      </div>
-    </div>
+        {number}
+      </text>
+    </g>
   );
 };
 
@@ -59,24 +61,72 @@ export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => 
   const upperTeeth = Array.from({ length: 16 }, (_, i) => i + 1);
   const lowerTeeth = Array.from({ length: 16 }, (_, i) => i + 17);
 
+  // Calculate positions for upper arch (U-shaped curve)
+  const getUpperToothPosition = (toothNum: number) => {
+    const index = toothNum - 1;
+    const totalTeeth = 16;
+    const centerX = 400;
+    const radiusX = 280;
+    const radiusY = 120;
+    
+    // Angle from -150 to -30 degrees (upper arch)
+    const angle = -150 + (index * 120 / (totalTeeth - 1));
+    const angleRad = (angle * Math.PI) / 180;
+    
+    const x = centerX + radiusX * Math.cos(angleRad);
+    const y = 150 + radiusY * Math.sin(angleRad);
+    
+    // Calculate rotation for tooth to point outward from center
+    const rotation = angle + 90;
+    
+    return { x, y, rotation };
+  };
+
+  // Calculate positions for lower arch (inverted U-shaped curve)
+  const getLowerToothPosition = (toothNum: number) => {
+    const index = toothNum - 17;
+    const totalTeeth = 16;
+    const centerX = 400;
+    const radiusX = 280;
+    const radiusY = 120;
+    
+    // Angle from 150 to 30 degrees (lower arch, mirrored)
+    const angle = 150 - (index * 120 / (totalTeeth - 1));
+    const angleRad = (angle * Math.PI) / 180;
+    
+    const x = centerX + radiusX * Math.cos(angleRad);
+    const y = 300 + radiusY * Math.sin(angleRad);
+    
+    // Calculate rotation for tooth to point outward from center
+    const rotation = angle - 90;
+    
+    return { x, y, rotation };
+  };
+
   return (
     <div className="bg-card border border-border rounded-lg p-8 shadow-sm">
-      <div className="space-y-12">
+      <div className="space-y-8">
         {/* Upper Arch */}
         <div>
           <h3 className="text-sm font-semibold text-muted-foreground mb-4 text-center">
             Upper Arch (Maxillary)
           </h3>
-          <div className="flex justify-center gap-2 flex-wrap">
-            {upperTeeth.map((num) => (
-              <Tooth
-                key={num}
-                number={num}
-                condition={teethStatus.get(num) || "healthy"}
-                onClick={() => onToothClick(num)}
-              />
-            ))}
-          </div>
+          <svg viewBox="0 0 800 250" className="w-full" style={{ maxHeight: '250px' }}>
+            {upperTeeth.map((num) => {
+              const pos = getUpperToothPosition(num);
+              return (
+                <Tooth
+                  key={num}
+                  number={num}
+                  condition={teethStatus.get(num) || "healthy"}
+                  onClick={() => onToothClick(num)}
+                  x={pos.x}
+                  y={pos.y}
+                  rotation={pos.rotation}
+                />
+              );
+            })}
+          </svg>
         </div>
 
         {/* Divider */}
@@ -87,16 +137,22 @@ export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => 
           <h3 className="text-sm font-semibold text-muted-foreground mb-4 text-center">
             Lower Arch (Mandibular)
           </h3>
-          <div className="flex justify-center gap-2 flex-wrap">
-            {lowerTeeth.map((num) => (
-              <Tooth
-                key={num}
-                number={num}
-                condition={teethStatus.get(num) || "healthy"}
-                onClick={() => onToothClick(num)}
-              />
-            ))}
-          </div>
+          <svg viewBox="0 0 800 250" className="w-full" style={{ maxHeight: '250px' }}>
+            {lowerTeeth.map((num) => {
+              const pos = getLowerToothPosition(num);
+              return (
+                <Tooth
+                  key={num}
+                  number={num}
+                  condition={teethStatus.get(num) || "healthy"}
+                  onClick={() => onToothClick(num)}
+                  x={pos.x}
+                  y={pos.y}
+                  rotation={pos.rotation}
+                />
+              );
+            })}
+          </svg>
         </div>
       </div>
 
