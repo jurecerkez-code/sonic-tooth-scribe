@@ -41,7 +41,7 @@ export const PatientList = ({ patients, onLoadPatient }: PatientListProps) => {
         <div className="space-y-3">
           {patients.map((patient, index) => (
             <Card
-              key={patient.patientInfo.sessionId}
+              key={`${patient.patientInfo.sessionId}-${index}`}
               className="p-4 hover:bg-accent/50 transition-colors cursor-pointer"
               onClick={() => onLoadPatient(patient)}
             >

@@ -32,7 +32,7 @@ const Index = () => {
   const [historyIndex, setHistoryIndex] = useState(0);
   const [patientInfo, setPatientInfo] = useState<PatientInfoType>({
     name: "",
-    sessionId: `SESSION-${Date.now()}`,
+    sessionId: `SESSION-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     date: new Date().toISOString(),
   });
   const [allPatients, setAllPatients] = useState<StoredPatient[]>([]);
@@ -139,7 +139,7 @@ const Index = () => {
     setSelectedPatient(null);
     setPatientInfo({
       name: "",
-      sessionId: `SESSION-${Date.now()}`,
+      sessionId: `SESSION-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       date: new Date().toISOString(),
     });
     toast({
@@ -285,7 +285,7 @@ const Index = () => {
     setSelectedPatient(patient);
     setPatientInfo({
       name: patient.name,
-      sessionId: `SESSION-${Date.now()}`,
+      sessionId: `SESSION-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       date: new Date().toISOString(),
     });
   };
