@@ -13,62 +13,78 @@ serve(async (req) => {
 
   try {
     const webhookUrl = 'https://n8n.linn.games/webhook-test/voice-process';
-    const sessionData = await req.json();
+    
+    // Parse FormData from request
+    const formData = await req.formData();
+    const audioFile = formData.get('audio') as File;
+    const timestamp = formData.get('timestamp') as string;
+    const duration = formData.get('duration') as string;
+    const type = formData.get('type') as string;
     
     console.log('=== N8N Webhook Call Debug ===');
     console.log('Webhook URL:', webhookUrl);
-    console.log('Session Data Type:', sessionData.type);
-    console.log('Timestamp:', sessionData.timestamp);
-    console.log('Has Audio Data:', !!sessionData.audioData);
-    console.log('Audio Data Length:', sessionData.audioData?.length || 0);
-    console.log('Audio Format:', sessionData.format);
-    console.log('Audio MIME Type:', sessionData.mimeType);
-    console.log('Audio Extension:', sessionData.extension);
+    console.log('Request Type:', type);
+    console.log('Timestamp:', timestamp);
+    console.log('Duration:', duration);
+    
+    if (!audioFile) {
+      console.error('No audio file in FormData');
+      return new Response(
+        JSON.stringify({ error: 'No audio file provided' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    console.log('Audio File:', {
+      name: audioFile.name,
+      type: audioFile.type,
+      size: audioFile.size
+    });
+    
+    // Validate audio format - must be MP3
+    const fileName = audioFile.name.toLowerCase();
+    const mimeType = audioFile.type.toLowerCase();
+    
+    if (!fileName.endsWith('.mp3') && !mimeType.includes('mp3') && !mimeType.includes('mpeg')) {
+      console.error('=== Format Validation Error ===');
+      console.error('Invalid audio format');
+      console.error('File name:', fileName);
+      console.error('MIME type:', mimeType);
+      console.error('Required: .mp3 extension or audio/mp3 MIME type');
+      console.error('==============================');
+      
+      return new Response(
+        JSON.stringify({ 
+          error: 'Only MP3 format is supported',
+          receivedFormat: `${fileName} (${mimeType})`,
+          requiredFormat: 'audio/mp3 with .mp3 extension'
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+    
+    console.log('✓ Audio format validated as MP3');
     console.log('==============================');
     
-    // Validate audio format for voice recordings
-    if (sessionData.type === 'voice_recording') {
-      const supportedFormats = ['audio/mp3', 'audio/mpeg', 'audio/wav', 'audio/ogg', 
-                                'audio/flac', 'audio/m4a', 'audio/mp4', 'audio/mpga', 
-                                'audio/oga', 'audio/webm'];
-      
-      if (sessionData.mimeType && !supportedFormats.some(format => 
-          sessionData.mimeType.toLowerCase().includes(format.split('/')[1]))) {
-        console.error('=== Format Validation Error ===');
-        console.error('Unsupported audio format:', sessionData.mimeType);
-        console.error('Supported formats:', supportedFormats);
-        console.error('==============================');
-        
-        return new Response(
-          JSON.stringify({ 
-            error: 'Unsupported audio format. Please use MP3 for best results.',
-            receivedFormat: sessionData.mimeType,
-            supportedFormats 
-          }),
-          { 
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
-      }
-      
-      // Normalize format to MP3 for n8n/OpenAI compatibility
-      sessionData.format = 'audio/mp3';
-      sessionData.extension = sessionData.extension || 'mp3';
-      
-      console.log('Format normalized to MP3 for downstream processing');
-    }
+    // Create new FormData for n8n with proper MP3 format
+    const n8nFormData = new FormData();
+    
+    // Ensure the audio file has .mp3 extension and correct MIME type
+    const mp3Blob = new Blob([await audioFile.arrayBuffer()], { type: 'audio/mp3' });
+    n8nFormData.append('audio', mp3Blob, 'recording.mp3');
+    n8nFormData.append('timestamp', timestamp || new Date().toISOString());
+    n8nFormData.append('duration', duration || '0');
+    n8nFormData.append('source', 'DentalChart AI');
+    n8nFormData.append('type', type || 'voice_recording');
+
+    console.log('Sending FormData to n8n with MP3 audio file...');
 
     const response = await fetch(webhookUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        timestamp: new Date().toISOString(),
-        source: 'DentalChart AI',
-        ...sessionData
-      }),
+      body: n8nFormData,
     });
 
     if (!response.ok) {
@@ -79,15 +95,26 @@ serve(async (req) => {
       console.error('Response Body:', errorText);
       console.error('========================');
       
-      // Check for format-related errors from n8n/OpenAI
-      let errorMessage = `Webhook responded with ${response.status}: ${errorText}`;
+      // Parse error for specific issues
+      let errorMessage = `Webhook responded with ${response.status}`;
       if (errorText.toLowerCase().includes('format') || 
           errorText.toLowerCase().includes('unsupported') ||
-          errorText.toLowerCase().includes('file')) {
-        errorMessage = 'Audio format not supported by n8n/OpenAI. Ensure binary data field is named "audio" and format is MP3-compatible.';
+          errorText.toLowerCase().includes('file') ||
+          errorText.toLowerCase().includes('binary')) {
+        errorMessage = 'Audio format error in n8n/OpenAI. Ensure n8n webhook accepts binary data in field "audio" and OpenAI node can process MP3.';
       }
       
-      throw new Error(errorMessage);
+      return new Response(
+        JSON.stringify({ 
+          error: errorMessage,
+          details: errorText,
+          suggestion: 'Check n8n workflow: 1) Webhook node accepts binary data, 2) Binary field is named "audio", 3) OpenAI node references correct binary property'
+        }),
+        { 
+          status: response.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
     const result = await response.text();
@@ -98,7 +125,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Session data sent to automation successfully',
+        message: 'Voice recording sent to automation successfully',
         webhookResponse: result
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -113,7 +140,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: errorMessage,
-        details: 'Failed to send session data to automation webhook'
+        details: 'Failed to send audio to automation webhook'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
