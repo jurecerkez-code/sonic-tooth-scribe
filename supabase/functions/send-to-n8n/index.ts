@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const webhookUrl = 'https://n8n.linn.games/webhook-test/voice-process';
+    const webhookUrl = 'https://n8n.linn.games/webhook/voice-process';
     const sessionData = await req.json();
     
     console.log('=== N8N Webhook Call Debug ===');
