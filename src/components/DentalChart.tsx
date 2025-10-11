@@ -35,111 +35,100 @@ const Tooth = ({
 }) => {
   return (
     <g 
-      className="cursor-pointer transition-transform hover:scale-110"
+      className="cursor-pointer transition-opacity hover:opacity-80"
       onClick={onClick}
-      transform={`translate(${x}, ${y}) rotate(${rotation})`}
-      style={{ transformOrigin: '20px 30px' }}
     >
-      <path
-        d="M20 5 Q10 10, 10 25 Q10 45, 15 55 Q20 60, 25 55 Q30 45, 30 25 Q30 10, 20 5 Z"
-        className={`${getToothColor(condition)} stroke-border stroke-2 transition-colors`}
-      />
-      <text
-        x="20"
-        y="35"
-        textAnchor="middle"
-        className="text-xs font-semibold fill-card-foreground pointer-events-none"
-        transform={`rotate(${-rotation}, 20, 35)`}
-      >
-        {number}
-      </text>
+      <g transform={`translate(${x}, ${y}) rotate(${rotation})`}>
+        <ellipse
+          cx="0"
+          cy="0"
+          rx="18"
+          ry="28"
+          className={`${getToothColor(condition)} stroke-border stroke-2 transition-colors`}
+        />
+        <text
+          x="0"
+          y="5"
+          textAnchor="middle"
+          className="text-xs font-bold fill-card-foreground pointer-events-none select-none"
+          style={{ fontSize: '12px' }}
+        >
+          {number}
+        </text>
+      </g>
     </g>
   );
 };
 
 export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => {
-  const upperTeeth = Array.from({ length: 16 }, (_, i) => i + 1);
-  const lowerTeeth = Array.from({ length: 16 }, (_, i) => i + 17);
-
-  // Calculate positions for upper arch (U-shaped curve)
-  const getUpperToothPosition = (toothNum: number) => {
-    const index = toothNum - 1;
-    const totalTeeth = 16;
-    const centerX = 400;
-    const radiusX = 280;
-    const radiusY = 120;
+  // Calculate positions for teeth in a complete oval/horseshoe pattern
+  const getToothPosition = (toothNum: number) => {
+    const centerX = 300;
+    const centerY = 250;
+    const radiusX = 200;
+    const radiusY = 180;
     
-    // Angle from -150 to -30 degrees (upper arch)
-    const angle = -150 + (index * 120 / (totalTeeth - 1));
+    // Map tooth numbers to positions around the oval
+    // Upper right: 1-8, Upper left: 9-16, Lower left: 17-24, Lower right: 25-32
+    let angle;
+    
+    if (toothNum >= 1 && toothNum <= 8) {
+      // Upper right quadrant (clockwise from top)
+      const position = toothNum - 1;
+      angle = 270 - (position * 90 / 7); // 270° to 180°
+    } else if (toothNum >= 9 && toothNum <= 16) {
+      // Upper left quadrant
+      const position = toothNum - 9;
+      angle = 180 - (position * 90 / 7); // 180° to 90°
+    } else if (toothNum >= 17 && toothNum <= 24) {
+      // Lower left quadrant
+      const position = toothNum - 17;
+      angle = 90 - (position * 90 / 7); // 90° to 0°
+    } else {
+      // Lower right quadrant (25-32)
+      const position = toothNum - 25;
+      angle = 360 - (position * 90 / 7); // 360° to 270°
+    }
+    
     const angleRad = (angle * Math.PI) / 180;
-    
     const x = centerX + radiusX * Math.cos(angleRad);
-    const y = 150 + radiusY * Math.sin(angleRad);
+    const y = centerY + radiusY * Math.sin(angleRad);
     
-    // Calculate rotation for tooth to point outward from center
-    const rotation = angle + 90;
-    
-    return { x, y, rotation };
-  };
-
-  // Calculate positions for lower arch (inverted U-shaped curve)
-  const getLowerToothPosition = (toothNum: number) => {
-    const index = toothNum - 17;
-    const totalTeeth = 16;
-    const centerX = 400;
-    const radiusX = 280;
-    const radiusY = 120;
-    
-    // Angle from 150 to 30 degrees (lower arch, mirrored)
-    const angle = 150 - (index * 120 / (totalTeeth - 1));
-    const angleRad = (angle * Math.PI) / 180;
-    
-    const x = centerX + radiusX * Math.cos(angleRad);
-    const y = 300 + radiusY * Math.sin(angleRad);
-    
-    // Calculate rotation for tooth to point outward from center
+    // Rotation to point outward from center
     const rotation = angle - 90;
     
     return { x, y, rotation };
   };
 
+  const allTeeth = Array.from({ length: 32 }, (_, i) => i + 1);
+
   return (
     <div className="bg-card border border-border rounded-lg p-8 shadow-sm">
-      <div className="space-y-8">
-        {/* Upper Arch */}
-        <div>
-          <h3 className="text-sm font-semibold text-muted-foreground mb-4 text-center">
-            Upper Arch (Maxillary)
-          </h3>
-          <svg viewBox="0 0 800 250" className="w-full" style={{ maxHeight: '250px' }}>
-            {upperTeeth.map((num) => {
-              const pos = getUpperToothPosition(num);
-              return (
-                <Tooth
-                  key={num}
-                  number={num}
-                  condition={teethStatus.get(num) || "healthy"}
-                  onClick={() => onToothClick(num)}
-                  x={pos.x}
-                  y={pos.y}
-                  rotation={pos.rotation}
-                />
-              );
-            })}
-          </svg>
-        </div>
-
-        {/* Divider */}
-        <div className="border-t-2 border-dashed border-border" />
-
-        {/* Lower Arch */}
-        <div>
-          <h3 className="text-sm font-semibold text-muted-foreground mb-4 text-center">
-            Lower Arch (Mandibular)
-          </h3>
-          <svg viewBox="0 0 800 250" className="w-full" style={{ maxHeight: '250px' }}>
-            {lowerTeeth.map((num) => {
-              const pos = getLowerToothPosition(num);
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-foreground text-center mb-6">
+          Dental Chart
+        </h3>
+        
+        {/* Single oval chart with all teeth */}
+        <div className="relative">
+          <svg viewBox="0 0 600 500" className="w-full" style={{ maxHeight: '500px' }}>
+            {/* Labels */}
+            <text x="500" y="120" textAnchor="middle" className="text-sm fill-muted-foreground font-semibold">
+              Upper right
+            </text>
+            <text x="100" y="120" textAnchor="middle" className="text-sm fill-muted-foreground font-semibold">
+              Upper left
+            </text>
+            <text x="500" y="390" textAnchor="middle" className="text-sm fill-muted-foreground font-semibold">
+              Lower right
+            </text>
+            <text x="100" y="390" textAnchor="middle" className="text-sm fill-muted-foreground font-semibold">
+              Lower left
+            </text>
+            
+            {/* All teeth in oval pattern */}
+            {allTeeth.map((num) => {
+              const pos = getToothPosition(num);
               return (
                 <Tooth
                   key={num}
