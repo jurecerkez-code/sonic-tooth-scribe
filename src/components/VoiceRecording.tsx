@@ -286,8 +286,17 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
         duration: payload.duration,
       });
 
+      // Get current session for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
       const { data, error } = await supabase.functions.invoke("send-to-n8n", {
         body: payload,
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
       });
 
       const responseTime = Date.now() - startTime;

@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,14 +25,49 @@ serve(async (req) => {
   }
 
   try {
-    const webhookUrl = "https://n8n.linn.games/webhook-test/voice-process";
+    // Validate authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }), 
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
-    // Debug logging
+    // Get webhook URL from environment variable
+    const webhookUrl = Deno.env.get('N8N_WEBHOOK_URL') || "https://n8n.linn.games/webhook-test/voice-process";
+    
+    // Initialize Supabase client to verify token
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    // Verify the user is authenticated
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }), 
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Debug logging (minimal in production)
     const ct = (req.headers.get("content-type") || "").toLowerCase();
-    console.log("=== Incoming Request Debug ===");
-    console.log("Edge Version:", "v3-json-only");
-    console.log("Content-Type:", ct);
-    console.log("Method:", req.method);
+    if (Deno.env.get('ENVIRONMENT') === 'development') {
+      console.log("=== Incoming Request Debug ===");
+      console.log("Edge Version:", "v3-json-only");
+      console.log("Content-Type:", ct);
+      console.log("Method:", req.method);
+      console.log("User ID:", user.id);
+    }
 
     // Enforce JSON-only - reject non-JSON requests
     if (!ct.includes("application/json")) {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { DentalChart } from "@/components/DentalChart";
 import { PatientInfo } from "@/components/PatientInfo";
 import { VoiceRecording } from "@/components/VoiceRecording";
@@ -10,9 +11,10 @@ import { SessionHistory } from "@/components/SessionHistory";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { useDentalData } from "@/hooks/useDentalData";
 import { ToothCondition, PatientInfo as PatientInfoType, Finding } from "@/types/dental";
 import { Patient, Session, EnhancedFinding } from "@/types/enhanced-dental";
-import { Undo2, Redo2, Moon, Sun, Play, RotateCcw, Send } from "lucide-react";
+import { Undo2, Redo2, Moon, Sun, Play, RotateCcw, Send, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface StoredPatient {
@@ -23,6 +25,8 @@ interface StoredPatient {
 
 const Index = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { loading, createPatient, saveSession, getPatients } = useDentalData();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [teethStatus, setTeethStatus] = useState<Map<number, ToothCondition>>(new Map());
   const [findings, setFindings] = useState<Finding[]>([]);
@@ -34,19 +38,22 @@ const Index = () => {
     sessionId: `SESSION-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     date: new Date().toISOString(),
   });
-  const [allPatients, setAllPatients] = useState<StoredPatient[]>([]);
+  const [allPatients, setAllPatients] = useState<any[]>([]);
+  const [currentPatientId, setCurrentPatientId] = useState<string | null>(null);
   
   // Enhanced session state
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [enhancedFindings, setEnhancedFindings] = useState<EnhancedFinding[]>([]);
 
-  // Load patients from localStorage on mount
+  // Load patients from database on mount
   useEffect(() => {
-    const stored = localStorage.getItem("dentalPatients");
-    if (stored) {
-      setAllPatients(JSON.parse(stored));
-    }
+    loadPatients();
   }, []);
+
+  const loadPatients = async () => {
+    const patients = await getPatients();
+    setAllPatients(patients || []);
+  };
 
   useEffect(() => {
     if (isDarkMode) {
@@ -128,18 +135,10 @@ const Index = () => {
     }
   };
 
-  const handleNewPatient = () => {
-    // Save current patient if they have data
-    if (findings.length > 0 || teethStatus.size > 0) {
-      const currentPatient: StoredPatient = {
-        patientInfo,
-        teethStatus: Array.from(teethStatus.entries()),
-        findings,
-      };
-      
-      const updatedPatients = [...allPatients, currentPatient];
-      setAllPatients(updatedPatients);
-      localStorage.setItem("dentalPatients", JSON.stringify(updatedPatients));
+  const handleNewPatient = async () => {
+    // Save current session if there's data
+    if (currentPatientId && (findings.length > 0 || teethStatus.size > 0)) {
+      await saveSession(currentPatientId, teethStatus, findings);
     }
 
     // Reset for new patient
@@ -148,6 +147,7 @@ const Index = () => {
     setEnhancedFindings([]);
     setHistory([new Map()]);
     setHistoryIndex(0);
+    setCurrentPatientId(null);
     setSelectedPatient(null);
     setPatientInfo({
       name: "",
@@ -350,8 +350,19 @@ const Index = () => {
                 onClick={handleRedo}
                 disabled={historyIndex === history.length - 1}
               >
-                <Redo2 className="w-5 h-5" />
-              </Button>
+              <LogOut className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                supabase.auth.signOut();
+                navigate('/auth');
+              }}
+              className="gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </Button>
             </div>
           </div>
         </div>
