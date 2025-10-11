@@ -106,21 +106,21 @@ export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => 
     // Position teeth 17-24 on left side, 25-32 on right side of lower arch
     let position;
     if (toothNum >= 17 && toothNum <= 24) {
-      // Lower left: 17-24
+      // Lower left: 17-24 (8 teeth)
       position = toothNum - 17;
     } else {
-      // Lower right: 25-32
+      // Lower right: 25-32 (8 teeth)
       position = toothNum - 25;
     }
     
-    // Create horseshoe shape for lower arch (180° arc, mirrored) with more spacing
+    // Create horseshoe shape for lower arch (180° arc, mirrored)
     let angle;
     if (toothNum >= 17 && toothNum <= 24) {
-      // Left side: 175° to 90° (more spread)
-      angle = 175 - (position * 85 / 7);
+      // Left side: 175° to 95° (spread across 8 teeth)
+      angle = 175 - (position * 80 / 7);
     } else {
-      // Right side: 90° to 5° (more spread)
-      angle = 90 - (position * 85 / 7);
+      // Right side: 85° to 5° (spread across 8 teeth)
+      angle = 85 - (position * 80 / 7);
     }
     
     const angleRad = (angle * Math.PI) / 180;
