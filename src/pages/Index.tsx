@@ -14,7 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { ToothCondition, PatientInfo as PatientInfoType, Finding } from "@/types/dental";
 import { Patient, Dentist, Clinic, Session, EnhancedFinding } from "@/types/enhanced-dental";
-import { Undo2, Redo2, Moon, Sun, Play, RotateCcw } from "lucide-react";
+import { Undo2, Redo2, Moon, Sun, Play, RotateCcw, Send } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface StoredPatient {
   patientInfo: PatientInfoType;
@@ -194,11 +195,68 @@ const Index = () => {
     });
   };
 
-  const handleSendToN8n = () => {
-    toast({
-      title: "Sending to n8n",
-      description: "Data transmission feature coming soon",
-    });
+  const handleSendToN8n = async () => {
+    if (!sessionStarted || enhancedFindings.length === 0) {
+      toast({
+        title: "No Session Data",
+        description: "Please start a session and add findings before sending to automation",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const sessionData = {
+        sessionId: patientInfo.sessionId,
+        date: patientInfo.date,
+        patientInfo: {
+          name: selectedPatient?.name || patientInfo.name,
+          id: selectedPatient?.id,
+          dateOfBirth: selectedPatient?.dateOfBirth,
+          contact: selectedPatient?.contact,
+        },
+        dentist: {
+          name: selectedDentist?.name,
+          id: selectedDentist?.id,
+          licenseNumber: selectedDentist?.licenseNumber,
+        },
+        clinic: {
+          name: selectedClinic?.name,
+          id: selectedClinic?.id,
+          address: selectedClinic?.address,
+        },
+        findings: enhancedFindings.map(f => ({
+          id: f.id,
+          toothNumber: f.toothNumber,
+          condition: f.condition,
+          confidence: f.confidence,
+          verified: f.verified,
+          flagged: f.flagged,
+          timestamp: f.timestamp,
+          notes: f.notes,
+          transcript: f.transcript,
+        })),
+        teethStatus: Array.from(teethStatus.entries()),
+      };
+
+      const { data, error } = await supabase.functions.invoke('send-to-n8n', {
+        body: sessionData,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Sent to Automation",
+        description: "Session data successfully sent to n8n workflow",
+      });
+    } catch (error) {
+      console.error("Error sending to n8n:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send session data to automation",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDeleteFinding = (id: string) => {
@@ -370,6 +428,20 @@ const Index = () => {
 
                 {/* Voice Recording */}
                 <VoiceRecording onRecordingComplete={handleRecordingComplete} />
+
+                {/* Send to Automation */}
+                {sessionStarted && enhancedFindings.length > 0 && (
+                  <div className="flex justify-center">
+                    <Button 
+                      onClick={handleSendToN8n}
+                      className="gap-2"
+                      size="lg"
+                    >
+                      <Send className="w-4 h-4" />
+                      Send Session to Automation
+                    </Button>
+                  </div>
+                )}
 
                 {/* Legacy Patient List */}
                 <div className="mt-8">
