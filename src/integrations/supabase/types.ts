@@ -166,6 +166,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      setup_admin_user: {
+        Args: { admin_user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "dentist" | "hygienist"
