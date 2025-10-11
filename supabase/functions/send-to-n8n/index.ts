@@ -12,16 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const webhookUrl = Deno.env.get('N8N_WEBHOOK_URL');
-    
-    if (!webhookUrl) {
-      console.error('N8N_WEBHOOK_URL not configured');
-      return new Response(
-        JSON.stringify({ error: 'Webhook URL not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
+    const webhookUrl = 'https://n8n.linn.games/webhook-test/voice-process';
     const sessionData = await req.json();
     
     console.log('=== N8N Webhook Call Debug ===');
