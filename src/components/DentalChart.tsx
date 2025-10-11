@@ -63,7 +63,7 @@ const Tooth = ({
 export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => {
   // Calculate positions for upper arch teeth (1-16)
   const getUpperToothPosition = (toothNum: number) => {
-    const centerX = 400;
+    const centerX = 450;
     const centerY = 200;
     const radiusX = 280;
     const radiusY = 130;
@@ -98,7 +98,7 @@ export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => 
 
   // Calculate positions for lower arch teeth (17-32)
   const getLowerToothPosition = (toothNum: number) => {
-    const centerX = 400;
+    const centerX = 450;
     const centerY = 400;
     const radiusX = 280;
     const radiusY = 130;
@@ -143,29 +143,29 @@ export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => 
         
         <div className="relative">
           <svg viewBox="0 0 900 600" className="w-full" style={{ maxHeight: '600px' }}>
-            {/* Quadrant Labels - positioned well outside teeth */}
-            <text x="800" y="190" textAnchor="start" className="text-base fill-foreground font-semibold" style={{ fontSize: '18px' }}>
-              Upper Right
-            </text>
-            <text x="800" y="210" textAnchor="start" className="text-sm fill-muted-foreground" style={{ fontSize: '14px' }}>
-              Quadrant
-            </text>
-            <text x="100" y="190" textAnchor="end" className="text-base fill-foreground font-semibold" style={{ fontSize: '18px' }}>
+            {/* Quadrant Labels - positioned completely outside teeth */}
+            <text x="30" y="190" textAnchor="start" className="text-base fill-foreground font-semibold" style={{ fontSize: '18px' }}>
               Upper Left
             </text>
-            <text x="100" y="210" textAnchor="end" className="text-sm fill-muted-foreground" style={{ fontSize: '14px' }}>
+            <text x="30" y="210" textAnchor="start" className="text-sm fill-muted-foreground" style={{ fontSize: '14px' }}>
               Quadrant
             </text>
-            <text x="800" y="410" textAnchor="start" className="text-base fill-foreground font-semibold" style={{ fontSize: '18px' }}>
-              Lower Right
+            <text x="870" y="190" textAnchor="end" className="text-base fill-foreground font-semibold" style={{ fontSize: '18px' }}>
+              Upper Right
             </text>
-            <text x="800" y="430" textAnchor="start" className="text-sm fill-muted-foreground" style={{ fontSize: '14px' }}>
+            <text x="870" y="210" textAnchor="end" className="text-sm fill-muted-foreground" style={{ fontSize: '14px' }}>
               Quadrant
             </text>
-            <text x="100" y="410" textAnchor="end" className="text-base fill-foreground font-semibold" style={{ fontSize: '18px' }}>
+            <text x="30" y="410" textAnchor="start" className="text-base fill-foreground font-semibold" style={{ fontSize: '18px' }}>
               Lower Left
             </text>
-            <text x="100" y="430" textAnchor="end" className="text-sm fill-muted-foreground" style={{ fontSize: '14px' }}>
+            <text x="30" y="430" textAnchor="start" className="text-sm fill-muted-foreground" style={{ fontSize: '14px' }}>
+              Quadrant
+            </text>
+            <text x="870" y="410" textAnchor="end" className="text-base fill-foreground font-semibold" style={{ fontSize: '18px' }}>
+              Lower Right
+            </text>
+            <text x="870" y="430" textAnchor="end" className="text-sm fill-muted-foreground" style={{ fontSize: '14px' }}>
               Quadrant
             </text>
             
