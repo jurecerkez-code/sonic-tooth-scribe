@@ -65,8 +65,8 @@ export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => 
   const getUpperToothPosition = (toothNum: number) => {
     const centerX = 300;
     const centerY = 180;
-    const radiusX = 200;
-    const radiusY = 100;
+    const radiusX = 220;
+    const radiusY = 110;
     
     // Position teeth 1-8 on right side, 9-16 on left side of upper arch
     let position;
@@ -78,14 +78,14 @@ export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => 
       position = toothNum - 9;
     }
     
-    // Create horseshoe shape for upper arch (180° arc)
+    // Create horseshoe shape for upper arch (180° arc) with more spacing
     let angle;
     if (toothNum >= 1 && toothNum <= 8) {
-      // Right side: -90° to -10°
-      angle = -90 + (position * 80 / 7);
+      // Right side: -90° to -5° (more spread)
+      angle = -90 + (position * 85 / 7);
     } else {
-      // Left side: -170° to -90°
-      angle = -170 + (position * 80 / 7);
+      // Left side: -175° to -90° (more spread)
+      angle = -175 + (position * 85 / 7);
     }
     
     const angleRad = (angle * Math.PI) / 180;
@@ -100,8 +100,8 @@ export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => 
   const getLowerToothPosition = (toothNum: number) => {
     const centerX = 300;
     const centerY = 320;
-    const radiusX = 200;
-    const radiusY = 100;
+    const radiusX = 220;
+    const radiusY = 110;
     
     // Position teeth 17-24 on left side, 25-32 on right side of lower arch
     let position;
@@ -113,14 +113,14 @@ export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => 
       position = toothNum - 25;
     }
     
-    // Create horseshoe shape for lower arch (180° arc, mirrored)
+    // Create horseshoe shape for lower arch (180° arc, mirrored) with more spacing
     let angle;
     if (toothNum >= 17 && toothNum <= 24) {
-      // Left side: 170° to 90°
-      angle = 170 - (position * 80 / 7);
+      // Left side: 175° to 90° (more spread)
+      angle = 175 - (position * 85 / 7);
     } else {
-      // Right side: 90° to 10°
-      angle = 90 - (position * 80 / 7);
+      // Right side: 90° to 5° (more spread)
+      angle = 90 - (position * 85 / 7);
     }
     
     const angleRad = (angle * Math.PI) / 180;
