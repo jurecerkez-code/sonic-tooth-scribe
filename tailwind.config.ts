@@ -47,6 +47,19 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        status: {
+          healthy: "hsl(var(--status-healthy))",
+          removed: "hsl(var(--status-removed))",
+          cavity: "hsl(var(--status-cavity))",
+          crown: "hsl(var(--status-crown))",
+          rootCanal: "hsl(var(--status-root-canal))",
+          cracked: "hsl(var(--status-cracked))",
+          filling: "hsl(var(--status-filling))",
+        },
+        recording: {
+          DEFAULT: "hsl(var(--recording))",
+          glow: "hsl(var(--recording-glow))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -84,6 +97,10 @@ export default {
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "pulse-recording": "pulse-recording 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
       },
     },
   },
