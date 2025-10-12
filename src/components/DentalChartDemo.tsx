@@ -182,9 +182,7 @@ export const DentalChartDemo = () => {
           handleRecordingComplete(result);
         }} />
             <div className="flex gap-2 justify-center">
-              <Button variant="outline" onClick={handleLoadDemoData}>
-                Load Demo Data
-              </Button>
+              
             </div>
           </CardContent>
         </Card>}
