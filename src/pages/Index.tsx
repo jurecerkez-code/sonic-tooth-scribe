@@ -201,10 +201,19 @@ const Index = () => {
   };
 
   const handleLoadPatient = (patient: StoredPatient) => {
+    if (!patient || !patient.patientInfo) {
+      toast({ 
+        title: "Error", 
+        description: "Invalid patient data", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
     setPatientInfo(patient.patientInfo);
-    setTeethStatus(new Map(patient.teethStatus));
-    setFindings(patient.findings);
-    setHistory([new Map(patient.teethStatus)]);
+    setTeethStatus(new Map(patient.teethStatus || []));
+    setFindings(patient.findings || []);
+    setHistory([new Map(patient.teethStatus || [])]);
     setHistoryIndex(0);
 
     toast({ title: "Patient Loaded", description: `Loaded ${patient.patientInfo.name || "patient"} record` });
