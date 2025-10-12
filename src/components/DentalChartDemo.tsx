@@ -106,8 +106,8 @@ export const DentalChartDemo = () => {
       });
       setDentalData(demoData);
       toast({
-        title: "✓ Data Loaded",
-        description: "Dental chart updated with examination findings"
+        title: "✓ Demo Data Loaded",
+        description: "Showing sample dental examination (tooth #1 removed, tooth #14 root canal)"
       });
       return;
     }
@@ -201,9 +201,7 @@ export const DentalChartDemo = () => {
       {/* Dental Chart and Data Display */}
       {hasRecording && !isLoading && <>
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={handleLoadDemoData}>
-              Load Demo Data
-            </Button>
+            
             <Button variant="outline" onClick={handleClearData}>
               Clear & Record New
             </Button>
