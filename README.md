@@ -18,7 +18,7 @@
 
 ```sh
 # Clone the repository
-git clone <REPO_URL>
+git clone https://github.com/jurecerkez-code/sonic-tooth-scribe.git
 cd sonic-tooth-scribe
 
 # Install dependencies
