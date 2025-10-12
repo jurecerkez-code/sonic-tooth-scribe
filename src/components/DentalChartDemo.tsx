@@ -194,6 +194,13 @@ export const DentalChartDemo = () => {
       {/* Main Content */}
       <div className="container mx-auto p-6 space-y-6">
 
+      {/* Blank Dental Chart - Always Visible */}
+      {!hasRecording && !isLoading && (
+        <div className="animate-fade-in">
+          <DentalChart teethStatus={new Map()} onToothClick={handleToothClick} />
+        </div>
+      )}
+
       {/* Voice Recording Section */}
       {!hasRecording && <Card className="border-primary/20 animate-fade-in">
           <CardHeader>
@@ -209,13 +216,6 @@ export const DentalChartDemo = () => {
           }} />
           </CardContent>
         </Card>}
-
-      {/* Blank Dental Chart - Always Visible */}
-      {!hasRecording && !isLoading && (
-        <div className="animate-fade-in">
-          <DentalChart teethStatus={new Map()} onToothClick={handleToothClick} />
-        </div>
-      )}
 
       {/* Loading Indicator */}
       {isLoading && <Card className="border-primary/20 bg-primary/5">
