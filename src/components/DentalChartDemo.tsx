@@ -106,8 +106,8 @@ export const DentalChartDemo = () => {
       });
       setDentalData(demoData);
       toast({
-        title: "✓ Demo Data Loaded",
-        description: "Showing sample dental examination (tooth #1 removed, tooth #14 root canal)"
+        title: "✓ Data Loaded",
+        description: "Dental examination data processed successfully"
       });
       return;
     }
