@@ -73,7 +73,17 @@ const getConditionIcon = (condition: string) => {
 
 export const DentalChartDemo = () => {
   const { toast } = useToast();
-  const [dentalData, setDentalData] = useState(getDemoData());
+  const [dentalData, setDentalData] = useState({
+    transcript: "",
+    findings: [],
+    teethStatus: new Map<number, ToothCondition>(),
+    summary: {
+      totalTeethExamined: 0,
+      healthyTeeth: 0,
+      teethNeedingTreatment: 0,
+      urgentFindings: 0
+    }
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [hasRecording, setHasRecording] = useState(false);
 
@@ -84,6 +94,12 @@ export const DentalChartDemo = () => {
   // Handle n8n webhook response
   const handleRecordingComplete = (result: any) => {
     console.log("🎯 DentalChartDemo received n8n response:", result);
+    console.log("📊 Result details:", {
+      hasFindings: result.findings?.length,
+      hasTeethStatus: result.teethStatus?.length,
+      transcript: result.transcript
+    });
+    
     setIsLoading(false);
     setHasRecording(true);
 
@@ -95,6 +111,10 @@ export const DentalChartDemo = () => {
     if (!hasN8nData) {
       console.log("📦 No valid n8n data found, seeding with demo data");
       const demoData = getDemoData();
+      console.log("📦 Demo data loaded:", {
+        teethStatusSize: demoData.teethStatus.size,
+        findingsCount: demoData.findings.length
+      });
       setDentalData(demoData);
       toast({
         title: "✓ Demo Data Loaded",
