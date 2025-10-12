@@ -170,9 +170,7 @@ export const DentalChartDemo = () => {
         <div className="absolute inset-0 bg-[image:var(--gradient-hero)]" />
         <div className="absolute inset-0 bg-[image:var(--gradient-hero-overlay)]" />
         <div className="relative container mx-auto px-6 py-16 text-center">
-          <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-4 animate-fade-in">
-            Dental Examination Assistant
-          </h1>
+          <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-4 animate-fade-in">ToothScribe</h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 animate-fade-in">
             Record your dental findings with voice commands and visualize them instantly on our interactive dental chart
           </p>
@@ -204,9 +202,9 @@ export const DentalChartDemo = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <VoiceRecording onRecordingComplete={result => {
-          setIsLoading(true);
-          handleRecordingComplete(result);
-        }} />
+            setIsLoading(true);
+            handleRecordingComplete(result);
+          }} />
             <div className="flex gap-2 justify-center">
               
             </div>
