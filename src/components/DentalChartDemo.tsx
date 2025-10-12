@@ -164,11 +164,37 @@ export const DentalChartDemo = () => {
       description: "Ready for new recording"
     });
   };
-  return <div className="container mx-auto p-6 space-y-6">
-      <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold text-foreground mb-2">Dental Examination</h1>
-        
+  return <div className="min-h-screen">
+      {/* Hero Welcome Section */}
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-[image:var(--gradient-hero)]" />
+        <div className="absolute inset-0 bg-[image:var(--gradient-hero-overlay)]" />
+        <div className="relative container mx-auto px-6 py-16 text-center">
+          <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-4 animate-fade-in">
+            Dental Examination Assistant
+          </h1>
+          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 animate-fade-in">
+            Record your dental findings with voice commands and visualize them instantly on our interactive dental chart
+          </p>
+          <div className="flex flex-wrap gap-4 justify-center items-center text-sm text-muted-foreground animate-fade-in">
+            <div className="flex items-center gap-2">
+              <Activity className="w-5 h-5 text-primary" />
+              <span>AI-Powered Analysis</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-secondary" />
+              <span>Real-time Updates</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-orange-600" />
+              <span>Instant Insights</span>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Main Content */}
+      <div className="container mx-auto p-6 space-y-6">
 
       {/* Voice Recording Section */}
       {!hasRecording && <Card className="border-primary/20">
@@ -312,5 +338,6 @@ export const DentalChartDemo = () => {
               </CardContent>
             </Card>}
         </>}
+      </div>
     </div>;
 };
