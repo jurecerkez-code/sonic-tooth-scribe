@@ -33,7 +33,7 @@ type WorkflowResult = {
 const Index = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { loading, createPatient, saveSession, getPatients } = useDentalData();
+  const { loading, createPatient, saveSession, getPatients, getPatientSessions } = useDentalData();
 
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [teethStatus, setTeethStatus] = useState<Map<number, ToothCondition>>(new Map());
@@ -200,7 +200,43 @@ const Index = () => {
     toast({ title: "New Patient", description: "Previous patient saved. Ready for new patient." });
   };
 
-  const handleLoadPatient = (patient: StoredPatient) => {
+  const handleLoadPatient = async (patient: StoredPatient | any) => {
+    // Check if it's a database patient (has 'id' and 'name' directly)
+    if (patient.id && patient.name && !patient.patientInfo) {
+      // Database patient - load their most recent session
+      setCurrentPatientId(patient.id);
+      setSelectedPatient(patient);
+      setPatientInfo({
+        name: patient.name,
+        sessionId: `SESSION-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        date: new Date().toISOString(),
+      });
+
+      // Try to load most recent session for this patient
+      const sessions = await getPatientSessions(patient.id);
+      if (sessions && sessions.length > 0) {
+        const latestSession = sessions[0];
+        if (latestSession.session_data) {
+          const sessionData = latestSession.session_data as any;
+          setTeethStatus(new Map(sessionData.teethStatus || []));
+          setFindings(sessionData.findings || []);
+          setHistory([new Map(sessionData.teethStatus || [])]);
+          setHistoryIndex(0);
+        }
+      } else {
+        // No sessions yet, start fresh
+        setTeethStatus(new Map());
+        setFindings([]);
+        setEnhancedFindings([]);
+        setHistory([new Map()]);
+        setHistoryIndex(0);
+      }
+
+      toast({ title: "Patient Loaded", description: `Loaded ${patient.name}'s record` });
+      return;
+    }
+
+    // Legacy localStorage patient
     if (!patient || !patient.patientInfo) {
       toast({ 
         title: "Error", 
