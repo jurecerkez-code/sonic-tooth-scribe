@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { PatientInfo, ToothCondition, Finding } from "@/types/dental";
+import { Patient } from "@/hooks/useDentalData";
 import { Users, Calendar, FileText } from "lucide-react";
 
 interface StoredPatient {
@@ -10,10 +11,18 @@ interface StoredPatient {
   findings: Finding[];
 }
 
+// Support both legacy localStorage patients and new database patients
+type PatientRecord = StoredPatient | Patient;
+
 interface PatientListProps {
-  patients: StoredPatient[];
-  onLoadPatient: (patient: StoredPatient) => void;
+  patients: PatientRecord[];
+  onLoadPatient: (patient: PatientRecord) => void;
 }
+
+// Helper function to check if it's a database patient record
+const isDatabasePatient = (patient: PatientRecord): patient is Patient => {
+  return 'id' in patient && !('patientInfo' in patient);
+};
 
 export const PatientList = ({ patients, onLoadPatient }: PatientListProps) => {
   if (patients.length === 0) {
@@ -39,39 +48,50 @@ export const PatientList = ({ patients, onLoadPatient }: PatientListProps) => {
       
       <ScrollArea className="h-[400px] pr-4">
         <div className="space-y-3">
-          {patients.map((patient, index) => (
-            <Card
-              key={`${patient.patientInfo.sessionId}-${index}`}
-              className="p-4 hover:bg-accent/50 transition-colors cursor-pointer"
-              onClick={() => onLoadPatient(patient)}
-            >
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-lg">
-                    {patient.patientInfo.name || `Patient #${patients.length - index}`}
-                  </h3>
-                  <Button variant="outline" size="sm">
-                    Load
-                  </Button>
-                </div>
-                
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    {new Date(patient.patientInfo.date).toLocaleDateString()}
+          {patients.map((patient, index) => {
+            // Handle both database patients and legacy localStorage patients
+            const isDbPatient = isDatabasePatient(patient);
+            const patientName = isDbPatient ? patient.name : patient.patientInfo.name;
+            const patientDate = isDbPatient ? patient.created_at : patient.patientInfo.date;
+            const patientId = isDbPatient ? patient.id : patient.patientInfo.sessionId;
+            const findingsCount = isDbPatient ? 0 : patient.findings.length;
+
+            return (
+              <Card
+                key={`${patientId}-${index}`}
+                className="p-4 hover:bg-accent/50 transition-colors cursor-pointer"
+                onClick={() => onLoadPatient(patient)}
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-lg">
+                      {patientName || `Patient #${patients.length - index}`}
+                    </h3>
+                    <Button variant="outline" size="sm">
+                      Load
+                    </Button>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <FileText className="w-4 h-4" />
-                    {patient.findings.length} findings
+                  
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="w-4 h-4" />
+                      {new Date(patientDate).toLocaleDateString()}
+                    </div>
+                    {!isDbPatient && (
+                      <div className="flex items-center gap-1">
+                        <FileText className="w-4 h-4" />
+                        {findingsCount} findings
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="text-xs text-muted-foreground">
+                    {isDbPatient ? `Patient ID: ${patientId}` : `Session: ${patientId}`}
                   </div>
                 </div>
-                
-                <div className="text-xs text-muted-foreground">
-                  Session: {patient.patientInfo.sessionId}
-                </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       </ScrollArea>
     </Card>
