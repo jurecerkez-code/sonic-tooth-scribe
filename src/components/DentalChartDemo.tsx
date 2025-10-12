@@ -167,25 +167,23 @@ export const DentalChartDemo = () => {
   return <div className="min-h-screen">
       {/* Hero Welcome Section */}
       <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[image:var(--gradient-hero)] animate-fade-in" />
-        <div className="absolute inset-0 bg-[image:var(--gradient-hero-overlay)] animate-fade-in" />
+        <div className="absolute inset-0 bg-[image:var(--gradient-hero)]" />
+        <div className="absolute inset-0 bg-[image:var(--gradient-hero-overlay)]" />
         <div className="relative container mx-auto px-6 py-16 text-center">
-          <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-4 animate-[fade-in_0.6s_ease-out] opacity-0 [animation-fill-mode:forwards]">
-            ToothScribe
-          </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 animate-[fade-in_0.6s_ease-out_0.2s] opacity-0 [animation-fill-mode:forwards]">
+          <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-4 animate-fade-in">ToothScribe</h1>
+          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 animate-fade-in">
             Record your dental findings with voice commands and visualize them instantly on our interactive dental chart
           </p>
-          <div className="flex flex-wrap gap-4 justify-center items-center text-sm text-muted-foreground">
-            <div className="flex items-center gap-2 animate-[fade-in_0.6s_ease-out_0.4s] opacity-0 [animation-fill-mode:forwards]">
+          <div className="flex flex-wrap gap-4 justify-center items-center text-sm text-muted-foreground animate-fade-in">
+            <div className="flex items-center gap-2">
               <Activity className="w-5 h-5 text-primary" />
               <span>AI-Powered Analysis</span>
             </div>
-            <div className="flex items-center gap-2 animate-[fade-in_0.6s_ease-out_0.5s] opacity-0 [animation-fill-mode:forwards]">
+            <div className="flex items-center gap-2">
               <CheckCircle className="w-5 h-5 text-secondary" />
               <span>Real-time Updates</span>
             </div>
-            <div className="flex items-center gap-2 animate-[fade-in_0.6s_ease-out_0.6s] opacity-0 [animation-fill-mode:forwards]">
+            <div className="flex items-center gap-2">
               <AlertCircle className="w-5 h-5 text-orange-600" />
               <span>Instant Insights</span>
             </div>
@@ -197,7 +195,7 @@ export const DentalChartDemo = () => {
       <div className="container mx-auto p-6 space-y-6">
 
       {/* Voice Recording Section */}
-      {!hasRecording && <Card className="border-primary/20 animate-[scale-in_0.5s_ease-out_0.7s] opacity-0 [animation-fill-mode:forwards]">
+      {!hasRecording && <Card className="border-primary/20">
           <CardHeader>
             <CardTitle>Record Dental Findings</CardTitle>
             
@@ -226,14 +224,14 @@ export const DentalChartDemo = () => {
 
       {/* Dental Chart and Data Display */}
       {hasRecording && !isLoading && <>
-          <div className="flex justify-end gap-2 animate-[fade-in_0.4s_ease-out]">
+          <div className="flex justify-end gap-2">
             
             <Button variant="outline" onClick={handleClearData}>
               Clear & Record New
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-[fade-in_0.5s_ease-out_0.1s] opacity-0 [animation-fill-mode:forwards]">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Main Dental Chart - Takes 2 columns on large screens */}
             <div className="lg:col-span-2">
               <DentalChart teethStatus={dentalData.teethStatus} onToothClick={handleToothClick} />
@@ -326,7 +324,7 @@ export const DentalChartDemo = () => {
           </div>
 
           {/* Transcript Section - Full Width */}
-          {dentalData.transcript && <Card className="animate-[fade-in_0.5s_ease-out_0.3s] opacity-0 [animation-fill-mode:forwards]">
+          {dentalData.transcript && <Card>
               <CardHeader>
                 <CardTitle>Voice Transcript</CardTitle>
                 <CardDescription>Original voice input from examination</CardDescription>
