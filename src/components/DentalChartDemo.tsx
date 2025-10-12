@@ -87,11 +87,13 @@ export const DentalChartDemo = () => {
     setIsLoading(false);
     setHasRecording(true);
 
-    // Check if n8n returned empty/no data - use demo data as seed
-    const hasN8nData = result.findings && result.findings.length > 0;
+    // Check if n8n returned empty/no data or incomplete data - use demo data as seed
+    const hasValidFindings = result.findings && Array.isArray(result.findings) && result.findings.length > 0;
+    const hasValidTeethStatus = result.teethStatus && Array.isArray(result.teethStatus) && result.teethStatus.length > 0;
+    const hasN8nData = hasValidFindings || hasValidTeethStatus;
     
     if (!hasN8nData) {
-      console.log("📦 No n8n data found, seeding with demo data");
+      console.log("📦 No valid n8n data found, seeding with demo data");
       const demoData = getDemoData();
       setDentalData(demoData);
       toast({

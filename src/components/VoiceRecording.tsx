@@ -324,10 +324,14 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
 
       // Debug: Log raw response from edge function
       console.log("📥 Raw n8n response:", data);
+      
+      // Extract data from nested output object if present
+      const responseData = data?.output || data;
+      
       console.log("📊 Parsed data:", {
-        transcript: data?.transcript,
-        findings: data?.findings,
-        teethStatus: data?.teethStatus,
+        transcript: responseData?.transcript,
+        findings: responseData?.findings,
+        teethStatus: responseData?.teethStatus,
       });
 
       toast({
@@ -337,12 +341,13 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
       });
 
       // IMPORTANT: Pass n8n JSON back to the parent so Index can update the chart
-      setTranscript(data?.transcript ?? "Voice recording processed");
+      setTranscript(responseData?.transcript ?? "Voice recording processed");
       
       const resultData = {
-        transcript: data?.transcript,
-        findings: data?.findings ?? [],
-        teethStatus: data?.teethStatus ?? [],
+        transcript: responseData?.transcript,
+        findings: responseData?.findings ?? [],
+        teethStatus: responseData?.teethStatus ?? [],
+        summary: responseData?.summary,
       };
       
       console.log("🔄 Calling onRecordingComplete with:", resultData);
