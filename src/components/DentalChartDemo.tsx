@@ -195,21 +195,27 @@ export const DentalChartDemo = () => {
       <div className="container mx-auto p-6 space-y-6">
 
       {/* Voice Recording Section */}
-      {!hasRecording && <Card className="border-primary/20">
+      {!hasRecording && <Card className="border-primary/20 animate-fade-in">
           <CardHeader>
             <CardTitle>Record Dental Findings</CardTitle>
-            
+            <CardDescription>
+              Click the record button and speak your dental findings. The AI will process your voice and update the chart automatically.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <VoiceRecording onRecordingComplete={result => {
             setIsLoading(true);
             handleRecordingComplete(result);
           }} />
-            <div className="flex gap-2 justify-center">
-              
-            </div>
           </CardContent>
         </Card>}
+
+      {/* Blank Dental Chart - Always Visible */}
+      {!hasRecording && !isLoading && (
+        <div className="animate-fade-in">
+          <DentalChart teethStatus={new Map()} onToothClick={handleToothClick} />
+        </div>
+      )}
 
       {/* Loading Indicator */}
       {isLoading && <Card className="border-primary/20 bg-primary/5">
