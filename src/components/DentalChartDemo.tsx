@@ -167,9 +167,7 @@ export const DentalChartDemo = () => {
   return <div className="container mx-auto p-6 space-y-6">
       <div className="text-center mb-8">
         <h1 className="text-4xl font-bold text-foreground mb-2">Dental Examination</h1>
-        <p className="text-muted-foreground">
-          {isLoading ? "Processing voice recording..." : hasRecording ? "Live Dental Chart Data" : "Record or load demo data"}
-        </p>
+        
       </div>
 
       {/* Voice Recording Section */}
