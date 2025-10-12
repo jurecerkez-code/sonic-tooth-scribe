@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { AlertCircle, CheckCircle, XCircle, Activity, Loader2 } from "lucide-react";
 import { ToothCondition } from "@/types/dental";
 import { useToast } from "@/hooks/use-toast";
-
 interface Finding {
   toothNumber: number;
   condition: string;
@@ -20,28 +19,22 @@ interface Finding {
 // Demo data as fallback
 const getDemoData = () => ({
   transcript: "Tooth number 1 is removed and tooth 14 needs root canal checkup",
-  findings: [
-    {
-      toothNumber: 1,
-      condition: "missing",
-      notes: "Tooth removed",
-      severity: "none" as const,
-      urgent: false,
-      confidence: 95
-    },
-    {
-      toothNumber: 14,
-      condition: "root_canal_needed",
-      notes: "Needs root canal checkup",
-      severity: "moderate" as const,
-      urgent: true,
-      confidence: 95
-    }
-  ],
-  teethStatus: new Map<number, ToothCondition>([
-    [1, "removed"],
-    [14, "root-canal"]
-  ]),
+  findings: [{
+    toothNumber: 1,
+    condition: "missing",
+    notes: "Tooth removed",
+    severity: "none" as const,
+    urgent: false,
+    confidence: 95
+  }, {
+    toothNumber: 14,
+    condition: "root_canal_needed",
+    notes: "Needs root canal checkup",
+    severity: "moderate" as const,
+    urgent: true,
+    confidence: 95
+  }],
+  teethStatus: new Map<number, ToothCondition>([[1, "removed"], [14, "root-canal"]]),
   summary: {
     totalTeethExamined: 2,
     healthyTeeth: 0,
@@ -49,7 +42,6 @@ const getDemoData = () => ({
     urgentFindings: 1
   }
 });
-
 const getSeverityColor = (severity: string) => {
   const colors = {
     none: "bg-muted text-muted-foreground",
@@ -59,7 +51,6 @@ const getSeverityColor = (severity: string) => {
   };
   return colors[severity as keyof typeof colors] || colors.none;
 };
-
 const getConditionIcon = (condition: string) => {
   switch (condition) {
     case "missing":
@@ -70,9 +61,10 @@ const getConditionIcon = (condition: string) => {
       return <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />;
   }
 };
-
 export const DentalChartDemo = () => {
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
   const [dentalData, setDentalData] = useState({
     transcript: "",
     findings: [],
@@ -86,7 +78,6 @@ export const DentalChartDemo = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [hasRecording, setHasRecording] = useState(false);
-
   const handleToothClick = (toothNumber: number) => {
     console.log("Tooth clicked:", toothNumber);
   };
@@ -99,7 +90,6 @@ export const DentalChartDemo = () => {
       hasTeethStatus: result.teethStatus?.length,
       transcript: result.transcript
     });
-    
     setIsLoading(false);
     setHasRecording(true);
 
@@ -107,7 +97,6 @@ export const DentalChartDemo = () => {
     const hasValidFindings = result.findings && Array.isArray(result.findings) && result.findings.length > 0;
     const hasValidTeethStatus = result.teethStatus && Array.isArray(result.teethStatus) && result.teethStatus.length > 0;
     const hasN8nData = hasValidFindings || hasValidTeethStatus;
-    
     if (!hasN8nData) {
       console.log("📦 No valid n8n data found, seeding with demo data");
       const demoData = getDemoData();
@@ -118,14 +107,13 @@ export const DentalChartDemo = () => {
       setDentalData(demoData);
       toast({
         title: "✓ Demo Data Loaded",
-        description: "Showing sample dental examination (tooth #1 removed, tooth #14 root canal)",
+        description: "Showing sample dental examination (tooth #1 removed, tooth #14 root canal)"
       });
       return;
     }
 
     // Parse and update dental data from n8n
     const newTeethStatus = new Map<number, ToothCondition>();
-    
     if (result.teethStatus && Array.isArray(result.teethStatus)) {
       result.teethStatus.forEach(([toothNum, condition]: [number, ToothCondition]) => {
         newTeethStatus.set(toothNum, condition);
@@ -144,24 +132,20 @@ export const DentalChartDemo = () => {
         urgentFindings: result.findings?.filter((f: any) => f.urgent).length || 0
       }
     };
-
     setDentalData(updatedData);
-    
     toast({
       title: "✓ Dental Chart Updated!",
-      description: `Found ${updatedData.findings.length} condition(s)`,
+      description: `Found ${updatedData.findings.length} condition(s)`
     });
   };
-
   const handleLoadDemoData = () => {
     setDentalData(getDemoData());
     setHasRecording(true);
     toast({
       title: "Demo Data Loaded",
-      description: "Showing sample dental examination data",
+      description: "Showing sample dental examination data"
     });
   };
-
   const handleClearData = () => {
     setDentalData({
       transcript: "",
@@ -177,12 +161,10 @@ export const DentalChartDemo = () => {
     setHasRecording(false);
     toast({
       title: "Data Cleared",
-      description: "Ready for new recording",
+      description: "Ready for new recording"
     });
   };
-
-  return (
-    <div className="container mx-auto p-6 space-y-6">
+  return <div className="container mx-auto p-6 space-y-6">
       <div className="text-center mb-8">
         <h1 className="text-4xl font-bold text-foreground mb-2">Dental Examination</h1>
         <p className="text-muted-foreground">
@@ -191,33 +173,26 @@ export const DentalChartDemo = () => {
       </div>
 
       {/* Voice Recording Section */}
-      {!hasRecording && (
-        <Card className="border-primary/20">
+      {!hasRecording && <Card className="border-primary/20">
           <CardHeader>
             <CardTitle>Record Dental Findings</CardTitle>
-            <CardDescription>
-              Speak dental conditions (e.g., "Tooth 1 is removed, tooth 14 needs root canal")
-            </CardDescription>
+            
           </CardHeader>
           <CardContent className="space-y-4">
-            <VoiceRecording 
-              onRecordingComplete={(result) => {
-                setIsLoading(true);
-                handleRecordingComplete(result);
-              }} 
-            />
+            <VoiceRecording onRecordingComplete={result => {
+          setIsLoading(true);
+          handleRecordingComplete(result);
+        }} />
             <div className="flex gap-2 justify-center">
               <Button variant="outline" onClick={handleLoadDemoData}>
                 Load Demo Data
               </Button>
             </div>
           </CardContent>
-        </Card>
-      )}
+        </Card>}
 
       {/* Loading Indicator */}
-      {isLoading && (
-        <Card className="border-primary/20 bg-primary/5">
+      {isLoading && <Card className="border-primary/20 bg-primary/5">
           <CardContent className="flex items-center justify-center py-12">
             <div className="text-center space-y-4">
               <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
@@ -225,12 +200,10 @@ export const DentalChartDemo = () => {
               <p className="text-sm text-muted-foreground">Processing dental findings</p>
             </div>
           </CardContent>
-        </Card>
-      )}
+        </Card>}
 
       {/* Dental Chart and Data Display */}
-      {hasRecording && !isLoading && (
-        <>
+      {hasRecording && !isLoading && <>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={handleLoadDemoData}>
               Load Demo Data
@@ -243,10 +216,7 @@ export const DentalChartDemo = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Main Dental Chart - Takes 2 columns on large screens */}
             <div className="lg:col-span-2">
-              <DentalChart 
-                teethStatus={dentalData.teethStatus}
-                onToothClick={handleToothClick}
-              />
+              <DentalChart teethStatus={dentalData.teethStatus} onToothClick={handleToothClick} />
             </div>
 
             {/* Right Sidebar - Summary and Findings */}
@@ -294,18 +264,7 @@ export const DentalChartDemo = () => {
                   <CardDescription>Detected dental conditions</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {dentalData.findings.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-4">No findings yet. Record a voice note to analyze.</p>
-                  ) : (
-                    dentalData.findings.map((finding: Finding, index: number) => (
-                <div
-                  key={index}
-                  className={`p-4 rounded-lg border-2 space-y-3 ${
-                    finding.urgent
-                      ? "border-orange-500/50 bg-orange-500/5 shadow-md"
-                      : "border-border bg-muted/30"
-                  }`}
-                >
+                  {dentalData.findings.length === 0 ? <p className="text-center text-muted-foreground py-4">No findings yet. Record a voice note to analyze.</p> : dentalData.findings.map((finding: Finding, index: number) => <div key={index} className={`p-4 rounded-lg border-2 space-y-3 ${finding.urgent ? "border-orange-500/50 bg-orange-500/5 shadow-md" : "border-border bg-muted/30"}`}>
                   <div className="flex items-start gap-3">
                     <div className="mt-1">
                       {getConditionIcon(finding.condition)}
@@ -315,11 +274,9 @@ export const DentalChartDemo = () => {
                         <h4 className="font-semibold text-foreground">
                           Tooth #{finding.toothNumber}
                         </h4>
-                        {finding.urgent && (
-                          <Badge variant="destructive" className="text-xs">
+                        {finding.urgent && <Badge variant="destructive" className="text-xs">
                             URGENT
-                          </Badge>
-                        )}
+                          </Badge>}
                       </div>
                       <p className="text-sm font-medium text-foreground capitalize">
                         {finding.condition.replace(/_/g, " ")}
@@ -342,17 +299,14 @@ export const DentalChartDemo = () => {
                       </div>
                     </div>
                   </div>
-                    </div>
-                  ))
-                  )}
+                    </div>)}
                 </CardContent>
               </Card>
             </div>
           </div>
 
           {/* Transcript Section - Full Width */}
-          {dentalData.transcript && (
-            <Card>
+          {dentalData.transcript && <Card>
               <CardHeader>
                 <CardTitle>Voice Transcript</CardTitle>
                 <CardDescription>Original voice input from examination</CardDescription>
@@ -362,10 +316,7 @@ export const DentalChartDemo = () => {
                   <p className="text-foreground italic">"{dentalData.transcript}"</p>
                 </div>
               </CardContent>
-            </Card>
-          )}
-        </>
-      )}
-    </div>
-  );
+            </Card>}
+        </>}
+    </div>;
 };
