@@ -381,7 +381,7 @@ const Index = () => {
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-primary">DentalChart AI</h1>
+              <h1 className="text-3xl font-bold text-primary">ToothScribe</h1>
               <p className="text-sm text-muted-foreground mt-1">Professional Dental Charting System</p>
             </div>
             <div className="flex items-center gap-2">
