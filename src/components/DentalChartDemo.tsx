@@ -25,7 +25,7 @@ const getDemoData = () => ({
     notes: "Tooth removed",
     severity: "none" as const,
     urgent: false,
-    confidence: 95
+    confidence: 100
   }, {
     toothNumber: 14,
     condition: "root_canal_needed",
