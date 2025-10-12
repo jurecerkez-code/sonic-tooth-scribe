@@ -1,8 +1,12 @@
+import { useState } from "react";
 import { DentalChart } from "./DentalChart";
+import { VoiceRecording } from "./VoiceRecording";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, CheckCircle, XCircle, Activity } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertCircle, CheckCircle, XCircle, Activity, Loader2 } from "lucide-react";
 import { ToothCondition } from "@/types/dental";
+import { useToast } from "@/hooks/use-toast";
 
 interface Finding {
   toothNumber: number;
@@ -13,7 +17,8 @@ interface Finding {
   confidence: number;
 }
 
-const demoData = {
+// Demo data as fallback
+const getDemoData = () => ({
   transcript: "Tooth number 1 is removed and tooth 14 needs root canal checkup",
   findings: [
     {
@@ -43,7 +48,7 @@ const demoData = {
     teethNeedingTreatment: 1,
     urgentFindings: 1
   }
-};
+});
 
 const getSeverityColor = (severity: string) => {
   const colors = {
@@ -67,72 +72,196 @@ const getConditionIcon = (condition: string) => {
 };
 
 export const DentalChartDemo = () => {
+  const { toast } = useToast();
+  const [dentalData, setDentalData] = useState(getDemoData());
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasRecording, setHasRecording] = useState(false);
+
   const handleToothClick = (toothNumber: number) => {
     console.log("Tooth clicked:", toothNumber);
+  };
+
+  // Handle n8n webhook response
+  const handleRecordingComplete = (result: any) => {
+    console.log("🎯 DentalChartDemo received n8n response:", result);
+    setIsLoading(false);
+    setHasRecording(true);
+
+    // Parse and update dental data
+    const newTeethStatus = new Map<number, ToothCondition>();
+    
+    if (result.teethStatus && Array.isArray(result.teethStatus)) {
+      result.teethStatus.forEach(([toothNum, condition]: [number, ToothCondition]) => {
+        newTeethStatus.set(toothNum, condition);
+      });
+    }
+
+    // Map n8n response to our data structure
+    const updatedData = {
+      transcript: result.transcript || "",
+      findings: result.findings || [],
+      teethStatus: newTeethStatus,
+      summary: result.summary || {
+        totalTeethExamined: result.findings?.length || 0,
+        healthyTeeth: 0,
+        teethNeedingTreatment: result.findings?.filter((f: any) => f.condition !== "healthy").length || 0,
+        urgentFindings: result.findings?.filter((f: any) => f.urgent).length || 0
+      }
+    };
+
+    setDentalData(updatedData);
+    
+    toast({
+      title: "✓ Dental Chart Updated!",
+      description: `Found ${updatedData.findings.length} condition(s)`,
+    });
+  };
+
+  const handleLoadDemoData = () => {
+    setDentalData(getDemoData());
+    setHasRecording(true);
+    toast({
+      title: "Demo Data Loaded",
+      description: "Showing sample dental examination data",
+    });
+  };
+
+  const handleClearData = () => {
+    setDentalData({
+      transcript: "",
+      findings: [],
+      teethStatus: new Map(),
+      summary: {
+        totalTeethExamined: 0,
+        healthyTeeth: 0,
+        teethNeedingTreatment: 0,
+        urgentFindings: 0
+      }
+    });
+    setHasRecording(false);
+    toast({
+      title: "Data Cleared",
+      description: "Ready for new recording",
+    });
   };
 
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="text-center mb-8">
         <h1 className="text-4xl font-bold text-foreground mb-2">Dental Examination</h1>
-        <p className="text-muted-foreground">Interactive Dental Chart with Demo Data</p>
+        <p className="text-muted-foreground">
+          {isLoading ? "Processing voice recording..." : hasRecording ? "Live Dental Chart Data" : "Record or load demo data"}
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Dental Chart - Takes 2 columns on large screens */}
-        <div className="lg:col-span-2">
-          <DentalChart 
-            teethStatus={demoData.teethStatus}
-            onToothClick={handleToothClick}
-          />
-        </div>
+      {/* Voice Recording Section */}
+      {!hasRecording && (
+        <Card className="border-primary/20">
+          <CardHeader>
+            <CardTitle>Record Dental Findings</CardTitle>
+            <CardDescription>
+              Speak dental conditions (e.g., "Tooth 1 is removed, tooth 14 needs root canal")
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <VoiceRecording 
+              onRecordingComplete={(result) => {
+                setIsLoading(true);
+                handleRecordingComplete(result);
+              }} 
+            />
+            <div className="flex gap-2 justify-center">
+              <Button variant="outline" onClick={handleLoadDemoData}>
+                Load Demo Data
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-        {/* Right Sidebar - Summary and Findings */}
-        <div className="space-y-6">
-          {/* Summary Card */}
-          <Card className="border-primary/20 shadow-lg">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="w-5 h-5 text-primary" />
-                Examination Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between items-center p-2 bg-muted/50 rounded-lg">
-                <span className="text-sm font-medium">Total Teeth Examined</span>
-                <Badge variant="secondary" className="font-bold">
-                  {demoData.summary.totalTeethExamined}
-                </Badge>
-              </div>
-              <div className="flex justify-between items-center p-2 bg-muted/50 rounded-lg">
-                <span className="text-sm font-medium">Healthy Teeth</span>
-                <Badge variant="secondary" className="font-bold text-green-600 dark:text-green-400">
-                  {demoData.summary.healthyTeeth}
-                </Badge>
-              </div>
-              <div className="flex justify-between items-center p-2 bg-muted/50 rounded-lg">
-                <span className="text-sm font-medium">Needing Treatment</span>
-                <Badge variant="secondary" className="font-bold text-orange-600 dark:text-orange-400">
-                  {demoData.summary.teethNeedingTreatment}
-                </Badge>
-              </div>
-              <div className="flex justify-between items-center p-2 bg-red-500/10 rounded-lg border border-red-500/20">
-                <span className="text-sm font-medium text-red-700 dark:text-red-400">Urgent Findings</span>
-                <Badge variant="destructive" className="font-bold">
-                  {demoData.summary.urgentFindings}
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
+      {/* Loading Indicator */}
+      {isLoading && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="text-center space-y-4">
+              <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
+              <p className="text-lg font-medium text-foreground">Analyzing recording...</p>
+              <p className="text-sm text-muted-foreground">Processing dental findings</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-          {/* Findings List */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Findings ({demoData.findings.length})</CardTitle>
-              <CardDescription>Detected dental conditions</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {demoData.findings.map((finding: Finding, index: number) => (
+      {/* Dental Chart and Data Display */}
+      {hasRecording && !isLoading && (
+        <>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={handleLoadDemoData}>
+              Load Demo Data
+            </Button>
+            <Button variant="outline" onClick={handleClearData}>
+              Clear & Record New
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Main Dental Chart - Takes 2 columns on large screens */}
+            <div className="lg:col-span-2">
+              <DentalChart 
+                teethStatus={dentalData.teethStatus}
+                onToothClick={handleToothClick}
+              />
+            </div>
+
+            {/* Right Sidebar - Summary and Findings */}
+            <div className="space-y-6">
+              {/* Summary Card */}
+              <Card className="border-primary/20 shadow-lg">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-primary" />
+                    Examination Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between items-center p-2 bg-muted/50 rounded-lg">
+                    <span className="text-sm font-medium">Total Teeth Examined</span>
+                    <Badge variant="secondary" className="font-bold">
+                      {dentalData.summary.totalTeethExamined}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-muted/50 rounded-lg">
+                    <span className="text-sm font-medium">Healthy Teeth</span>
+                    <Badge variant="secondary" className="font-bold text-green-600 dark:text-green-400">
+                      {dentalData.summary.healthyTeeth}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-muted/50 rounded-lg">
+                    <span className="text-sm font-medium">Needing Treatment</span>
+                    <Badge variant="secondary" className="font-bold text-orange-600 dark:text-orange-400">
+                      {dentalData.summary.teethNeedingTreatment}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-red-500/10 rounded-lg border border-red-500/20">
+                    <span className="text-sm font-medium text-red-700 dark:text-red-400">Urgent Findings</span>
+                    <Badge variant="destructive" className="font-bold">
+                      {dentalData.summary.urgentFindings}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Findings List */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Findings ({dentalData.findings.length})</CardTitle>
+                  <CardDescription>Detected dental conditions</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {dentalData.findings.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-4">No findings yet. Record a voice note to analyze.</p>
+                  ) : (
+                    dentalData.findings.map((finding: Finding, index: number) => (
                 <div
                   key={index}
                   className={`p-4 rounded-lg border-2 space-y-3 ${
@@ -177,25 +306,30 @@ export const DentalChartDemo = () => {
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Transcript Section - Full Width */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Voice Transcript</CardTitle>
-          <CardDescription>Original voice input from examination</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="p-4 bg-muted rounded-lg border border-border">
-            <p className="text-foreground italic">"{demoData.transcript}"</p>
+                    </div>
+                  ))
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Transcript Section - Full Width */}
+          {dentalData.transcript && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Voice Transcript</CardTitle>
+                <CardDescription>Original voice input from examination</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="p-4 bg-muted rounded-lg border border-border">
+                  <p className="text-foreground italic">"{dentalData.transcript}"</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
     </div>
   );
 };
