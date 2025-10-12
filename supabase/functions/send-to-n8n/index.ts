@@ -153,9 +153,22 @@ serve(async (req) => {
       );
     }
 
-    // Success response
-    const data = await response.json().catch(() => ({}));
+    // Success response - parse n8n response data
+    let data: any = {};
+    const responseText = await response.text();
+    
+    console.log("📦 Raw n8n response body:", responseText);
+    
+    try {
+      data = JSON.parse(responseText);
+      console.log("✅ Parsed n8n response:", JSON.stringify(data, null, 2));
+    } catch (parseError) {
+      console.error("⚠️ Failed to parse n8n response as JSON:", parseError);
+      console.log("Returning empty object as fallback");
+    }
+    
     console.log("✓ Success! n8n processed the audio");
+    console.log("📤 Sending back to client:", JSON.stringify(data, null, 2));
 
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
