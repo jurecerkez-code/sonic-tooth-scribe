@@ -87,7 +87,21 @@ export const DentalChartDemo = () => {
     setIsLoading(false);
     setHasRecording(true);
 
-    // Parse and update dental data
+    // Check if n8n returned empty/no data - use demo data as seed
+    const hasN8nData = result.findings && result.findings.length > 0;
+    
+    if (!hasN8nData) {
+      console.log("📦 No n8n data found, seeding with demo data");
+      const demoData = getDemoData();
+      setDentalData(demoData);
+      toast({
+        title: "✓ Demo Data Loaded",
+        description: "Showing sample dental examination (tooth #1 removed, tooth #14 root canal)",
+      });
+      return;
+    }
+
+    // Parse and update dental data from n8n
     const newTeethStatus = new Map<number, ToothCondition>();
     
     if (result.teethStatus && Array.isArray(result.teethStatus)) {
