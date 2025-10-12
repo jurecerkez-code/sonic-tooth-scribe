@@ -1,0 +1,301 @@
+{
+  "name": "Create Voice Assistant Interface with OpenAI GPT-4o-mini and Text-to-Speech",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "You are a dental assistant analyzing voice recordings of dental examinations.\n\nTASK: Extract tooth conditions and create a structured dental chart.\n\nIMPORTANT RULES:\n1. Extract EVERY tooth number mentioned (1-32)\n2. Use EXACTLY these condition types:\n   - \"missing\" (tooth removed)\n   - \"root_canal_needed\" (needs root canal)\n   - \"cavity\" (decay found)\n   - \"crown\" (has crown)\n   - \"filling\" (has filling)\n   - \"healthy\" (no issues)\n\nSEVERITY: \"none\", \"mild\", \"moderate\", \"severe\"\nURGENT: true if needs immediate treatment\nCONFIDENCE: 0-100 (how sure you are)\n\nEXAMPLE:\nInput: \"Tooth 1 is removed and tooth 14 needs root canal checkup\"\nOutput:\n{\n  \"transcript\": \"Tooth 1 is removed and tooth 14 needs root canal checkup\",\n  \"findings\": [\n    {\n      \"toothNumber\": 1,\n      \"condition\": \"missing\",\n      \"notes\": \"Tooth removed\",\n      \"severity\": \"none\",\n      \"urgent\": false,\n      \"confidence\": 95\n    },\n    {\n      \"toothNumber\": 14,\n      \"condition\": \"root_canal_needed\",\n      \"notes\": \"Needs root canal checkup\",\n      \"severity\": \"moderate\",\n      \"urgent\": true,\n      \"confidence\": 95\n    }\n  ],\n  \"teethStatus\": [\n    {\n      \"toothNumber\": 1,\n      \"condition\": \"missing\",\n      \"verified\": true,\n      \"flagged\": false\n    },\n    {\n      \"toothNumber\": 14,\n      \"condition\": \"root_canal_needed\",\n      \"verified\": false,\n      \"flagged\": true\n    }\n  ],\n  \"summary\": {\n    \"totalTeethExamined\": 2,\n    \"healthyTeeth\": 0,\n    \"teethNeedingTreatment\": 1,\n    \"urgentFindings\": 1\n  }\n}\n\nNow analyze this recording:\n{{ $json.text }}\n\nReturn ONLY the JSON object, no additional text.  Return ONLY valid JSON with transcript, findings array, and teethStatus array.\n  \n  Recording: {{ $json.transcription }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a dental assistant analyzing voice recordings of dental examinations.\n\nTASK: Extract tooth conditions and create a structured dental chart.\n\nIMPORTANT RULES:\n1. Extract EVERY tooth number mentioned (1-32)\n2. Use EXACTLY these condition types:\n   - \"missing\" (tooth removed)\n   - \"root_canal_needed\" (needs root canal)\n   - \"cavity\" (decay found)\n   - \"crown\" (has crown)\n   - \"filling\" (has filling)\n   - \"healthy\" (no issues)\n\nSEVERITY: \"none\", \"mild\", \"moderate\", \"severe\"\nURGENT: true if needs immediate treatment\nCONFIDENCE: 0-100 (how sure you are)\n\nEXAMPLE:\nInput: \"Tooth 1 is removed and tooth 14 needs root canal checkup\"\nOutput:\n{\n  \"transcript\": \"Tooth 1 is removed and tooth 14 needs root canal checkup\",\n  \"findings\": [\n    {\n      \"toothNumber\": 1,\n      \"condition\": \"missing\",\n      \"notes\": \"Tooth removed\",\n      \"severity\": \"none\",\n      \"urgent\": false,\n      \"confidence\": 95\n    },\n    {\n      \"toothNumber\": 14,\n      \"condition\": \"root_canal_needed\",\n      \"notes\": \"Needs root canal checkup\",\n      \"severity\": \"moderate\",\n      \"urgent\": true,\n      \"confidence\": 95\n    }\n  ],\n  \"teethStatus\": [\n    {\n      \"toothNumber\": 1,\n      \"condition\": \"missing\",\n      \"verified\": true,\n      \"flagged\": false\n    },\n    {\n      \"toothNumber\": 14,\n      \"condition\": \"root_canal_needed\",\n      \"verified\": false,\n      \"flagged\": true\n    }\n  ],\n  \"summary\": {\n    \"totalTeethExamined\": 2,\n    \"healthyTeeth\": 0,\n    \"teethNeedingTreatment\": 1,\n    \"urgentFindings\": 1\n  }\n}\n\nNow analyze this recording:\n{{ $json.text }}\n\nReturn ONLY the JSON object, no additional text."
+        }
+      },
+      "id": "86c55226-42e9-42c0-a48c-751e52f0ebb3",
+      "name": "Process User Query",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        -720,
+        16
+      ],
+      "typeVersion": 1.8
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "voice-process",
+        "contextWindowLength": 30
+      },
+      "id": "65a16b17-26bc-42cb-bcb5-48abab597548",
+      "name": "Conversation Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "position": [
+        -720,
+        208
+      ],
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5",
+          "mode": "list",
+          "cachedResultName": "gpt-5"
+        },
+        "options": {}
+      },
+      "id": "b7eaba5f-51e0-48a0-bb61-92251bf9998b",
+      "name": "GPT-4o-mini Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "position": [
+        -848,
+        224
+      ],
+      "typeVersion": 1.2,
+      "credentials": {
+        "openAiApi": {
+          "id": "nkMB0IuuWe69Mlpn",
+          "name": "benediktov api"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -1008,
+        16
+      ],
+      "id": "d6ec1226-e83f-43af-9922-90a00abda523",
+      "name": "Transcribe a recording",
+      "credentials": {
+        "openAiApi": {
+          "id": "nkMB0IuuWe69Mlpn",
+          "name": "benediktov api"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get base64 audio data\nconst base64String = $json.body?.audioData || $json.audioData;\n\nif (!base64String) {\n  throw new Error(\"No audio data received\");\n}\n\n// Remove data URL prefix if present\nconst cleanBase64 = base64String.replace(/^data:audio\\/\\w+;base64,/, '');\n\n// Decode base64 to buffer\nconst audioBuffer = Buffer.from(cleanBase64, 'base64');\n\n// Log the size for debugging\nconsole.log('Audio buffer size:', audioBuffer.length, 'bytes');\n\n// Return binary data with correct format\nreturn [{\n  binary: {\n    data: {\n      data: cleanBase64,\n      mimeType: \"audio/webm\",  // Browser records in WebM\n      fileName: \"recording.webm\"\n    }\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1408,
+        16
+      ],
+      "id": "3bdd58aa-577b-475b-97c3-db7cb8d12a10",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"binary\": {\n    \"data\": {\n      \"mimeType\": \"audio/wav\",\n      \"fileName\": \"recording.wav\",\n      \"data\": \"BASE64_STRING_HERE\"\n    }\n  }\n}\n",
+        "includeOtherFields": true,
+        "include": "except",
+        "options": {
+          "stripBinary": false
+        }
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1216,
+        16
+      ],
+      "id": "864a72b8-d02c-440c-aae2-f94d653c5b68",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        64,
+        16
+      ],
+      "id": "429a8aa3-4b01-44a5-89d0-bd643a046e71",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-process",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "addb481f-fce7-4bd7-b5ee-7c339c1990ba",
+      "name": "Voice Interface Endpoint1",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        -1616,
+        16
+      ],
+      "webhookId": "71ac230d-5949-41ba-b05e-761cb5cb07f3",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"transcript\": \"Example transcript text\",\n  \"findings\": [\n    {\n      \"toothNumber\": 14,\n      \"condition\": \"cavity\",\n      \"notes\": \"Example notes\",\n      \"severity\": \"moderate\",\n      \"urgent\": false,\n      \"confidence\": 92\n    }\n  ],\n  \"teethStatus\": [\n    {\n      \"toothNumber\": 14,\n      \"condition\": \"cavity\",\n      \"verified\": false,\n      \"flagged\": true\n    }\n  ],\n  \"summary\": {\n    \"totalTeethExamined\": 32,\n    \"healthyTeeth\": 30,\n    \"teethNeedingTreatment\": 1,\n    \"urgentFindings\": 0\n  }\n}\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -432,
+        240
+      ],
+      "id": "7bea1070-90ea-4f1e-8082-3796e5a3bc19",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "dental_sessions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "user_id",
+              "keyValue": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('conditions0_Value', ``, 'string') }}"
+            },
+            {
+              "keyName": "session_data",
+              "keyValue": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('conditions1_Value', ``, 'string') }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        -576,
+        288
+      ],
+      "id": "a015ca0e-83ee-4165-8fff-74f084a84101",
+      "name": "Get a row in Supabase",
+      "credentials": {
+        "supabaseApi": {
+          "id": "dFCnv6rrzw7uzN0V",
+          "name": "Supabase account"
+        }
+      },
+      "disabled": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "GPT-4o-mini Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Process User Query",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process User Query": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversation Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Process User Query",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe a recording": {
+      "main": [
+        [
+          {
+            "node": "Process User Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Transcribe a recording",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Voice Interface Endpoint1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Process User Query",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a row in Supabase": {
+      "ai_tool": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "14c382f1-cf8b-44dd-97e9-c66b66d16d68",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6359399b922ce3c37bbd24d95b1466edf1eef82d9465bb6b28a9ae9a9a4bbe08"
+  },
+  "id": "xtpUwkXxYdy6y2kT",
+  "tags": []
+}
