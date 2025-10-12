@@ -35,7 +35,7 @@ serve(async (req) => {
     }
 
     // Get webhook URL from environment variable
-    const webhookUrl = Deno.env.get("N8N_WEBHOOK_URL") || "https://n8n.linn.games/webhook/voice-process";
+    const webhookUrl = Deno.env.get("N8N_WEBHOOK_URL") || "https://n8n.linn.games/webhook-test/voice-process";
 
     // Initialize Supabase client to verify token
     const supabaseClient = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
