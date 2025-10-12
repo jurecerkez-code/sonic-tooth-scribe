@@ -111,10 +111,19 @@ const Index = () => {
 
   // NEW: apply results coming back from n8n (via VoiceRecording)
   const handleRecordingComplete = (result: WorkflowResult) => {
+    console.log("🎯 handleRecordingComplete called with:", result);
+    
     // Merge chart state
     if (result.teethStatus?.length) {
+      console.log("📍 Current teethStatus before update:", Array.from(teethStatus.entries()));
+      
       const updated = new Map(teethStatus);
-      result.teethStatus.forEach(([num, cond]) => updated.set(num, cond));
+      result.teethStatus.forEach(([num, cond]) => {
+        console.log(`🦷 Setting tooth ${num} to ${cond}`);
+        updated.set(num, cond);
+      });
+      
+      console.log("📍 Updated teethStatus after update:", Array.from(updated.entries()));
       setTeethStatus(updated);
 
       // keep undo/redo consistent
@@ -122,24 +131,33 @@ const Index = () => {
       newHistory.push(new Map(updated));
       setHistory(newHistory);
       setHistoryIndex(newHistory.length - 1);
+    } else {
+      console.log("⚠️ No teethStatus in result");
     }
 
     // Append AI findings to enhanced panel
     if (result.findings?.length) {
-      setEnhancedFindings((prev) => [
-        ...prev,
-        ...result.findings.map((f) => ({
-          id: crypto.randomUUID(),
-          toothNumber: f.toothNumber,
-          condition: f.condition,
-          confidence: f.confidence ?? 80,
-          verified: false,
-          flagged: false,
-          notes: f.notes,
-          transcript: result.transcript,
-          timestamp: new Date().toISOString(),
-        })),
-      ]);
+      console.log("📝 Adding findings to enhanced panel:", result.findings);
+      setEnhancedFindings((prev) => {
+        const newFindings = [
+          ...prev,
+          ...result.findings.map((f) => ({
+            id: crypto.randomUUID(),
+            toothNumber: f.toothNumber,
+            condition: f.condition,
+            confidence: f.confidence ?? 80,
+            verified: false,
+            flagged: false,
+            notes: f.notes,
+            transcript: result.transcript,
+            timestamp: new Date().toISOString(),
+          })),
+        ];
+        console.log("📝 Enhanced findings after update:", newFindings);
+        return newFindings;
+      });
+    } else {
+      console.log("⚠️ No findings in result");
     }
 
     toast({ title: "Chart Updated", description: "Voice findings applied to the dental chart." });

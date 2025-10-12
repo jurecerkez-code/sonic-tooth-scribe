@@ -61,6 +61,9 @@ const Tooth = ({
 };
 
 export const DentalChart = ({ teethStatus, onToothClick }: DentalChartProps) => {
+  // Debug: Log when component receives new teethStatus
+  console.log("🦷 DentalChart render - teethStatus:", Array.from(teethStatus.entries()));
+  
   // Calculate positions for upper arch teeth (1-16)
   const getUpperToothPosition = (toothNum: number) => {
     const centerX = 450;

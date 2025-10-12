@@ -322,6 +322,14 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
         return false;
       }
 
+      // Debug: Log raw response from edge function
+      console.log("📥 Raw n8n response:", data);
+      console.log("📊 Parsed data:", {
+        transcript: data?.transcript,
+        findings: data?.findings,
+        teethStatus: data?.teethStatus,
+      });
+
       toast({
         title: "Recording Sent",
         description:
@@ -330,11 +338,15 @@ export const VoiceRecording = ({ onRecordingComplete }: VoiceRecordingProps) => 
 
       // IMPORTANT: Pass n8n JSON back to the parent so Index can update the chart
       setTranscript(data?.transcript ?? "Voice recording processed");
-      onRecordingComplete?.({
+      
+      const resultData = {
         transcript: data?.transcript,
         findings: data?.findings ?? [],
         teethStatus: data?.teethStatus ?? [],
-      });
+      };
+      
+      console.log("🔄 Calling onRecordingComplete with:", resultData);
+      onRecordingComplete?.(resultData);
 
       setOfflineMode(false);
       return true;
